@@ -110,7 +110,7 @@ nog = len(ratio_gearbox)
 
 if not os.path.exists('OpenVEHICLE Vehicles'): os.makedirs('OpenVEHICLE Vehicles')
 vehname = 'OpenVEHICLE Vehicles/OpenVEHICLE_' + name + '_' + car_type
-os.remove(vehname + '.log')
+os.remove(vehname + '.log') if os.path.exists(vehname + '.log') else None
 print('_______                    ___    ________________  ________________________________')
 print('__  __ \_____________________ |  / /__  ____/__  / / /___  _/_  ____/__  /___  ____/')
 print('_  / / /__  __ \  _ \_  __ \_ | / /__  __/  __  /_/ / __  / _  /    __  / __  __/   ')
@@ -124,8 +124,8 @@ print('=========================================================================
 print("Name: " + name)
 print("Type: " + car_type)
 now = datetime.datetime.now()
-print("Date: " + now.month + '/' + now.day + '/' + now.year)
-print("Time: " + now.hour + ':' + now.minute + ':' + now.second)
+print("Date: " + str(now.month) + '/' + str(now.day) + '/' + str(now.year))
+print("Time: " + str(now.hour) + ':' + str(now.minute) + ':' + str(now.second))
 print('====================================================================================')
 print('Vehicle generation started.')
 
@@ -142,7 +142,7 @@ print('Braking model generated successfully.')
 
 a = (1-df)*L # distance of front axle from center of mass [mm]
 b = -1*df*L # distance of rear axle from center of mass [mm]
-C = [[2*CF, 2*(CF+CR)][2*(CF*a),2*(CF*a+CR*b)]] # steering model matrix
+C = [[(2*CF), (2*(CF+CR))],[(2*(CF*a)),(2*(CF*a+CR*b))]] # steering model matrix
 # HUD
 print('Steering model generated successfully.')
 
@@ -151,7 +151,7 @@ print('Steering model generated successfully.')
 # fetching engine curves
 en_speed_curve = data[:][1] # [rpm]
 en_torque_curve = data[:][2] # [N*m]
-en_power_curve = [en_torque_curve[i] * en_speed_curve[i] for i in range(len(en_torque_curve))]*2*math.pi/60 # [W]
+en_power_curve = [(en_torque_curve[i] * en_speed_curve[i])*2*math.pi/60*tire_radius for i in range(len(en_torque_curve))] # [W]
 # memory preallocation
 # wheel speed per gear for every engine speed value
 wheel_speed_gear = np.zeros([len(en_speed_curve),nog])
@@ -215,3 +215,13 @@ arrive_points = engine_speed_gear_change[1:2:len(engine_speed_gear_change)]
 # calculating rev drops
 rev_drops = shift_points - arrive_points
 # creating shifting table
+rownames = []
+for i in range(1, nog-1):
+    rownames[i] = str(i) + '-' + str(i+1)
+shifting = np.zeros((len(rownames), 4))
+for i in range(1, len(rownames)):
+    shifting[i][0] = rownames[i]
+shifting[0][0] = 'shift_points'
+shifting[0][1] = 'arrive_points'
+shifting[0][2] = 'rev_drops'
+print(shifting)
