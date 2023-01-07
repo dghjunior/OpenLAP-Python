@@ -354,9 +354,9 @@ def simulate(veh, tr, simname, logid):
 
     ## maximum speed curve (assuming pure lateral condition)
 
-    v_max = np.zeros(tr.n, 1)
-    bps_v_max = np.zeros(tr.n, 1)
-    tps_v_max = np.zeros(tr.n, 1)
+    v_max = np.zeros(tr.n)
+    bps_v_max = np.zeros(tr.n)
+    tps_v_max = np.zeros(tr.n)
     for i in range(1, tr.n):
         v_max[i], tps_v_max[i], bps_v_max[i] = vehicle_model_lat(veh, tr, i)
 
@@ -369,7 +369,7 @@ def simulate(veh, tr, simname, logid):
     v_apex, apex = signal.find_peaks(-v_max) # findpeaks works for maxima, so need to flip values
     v_apex = -v_apex # flipping to get positive values
     # setting up standing start for open track configuration
-    if tr.info.config == 'Open':
+    if tr.config == 'Open':
         if not apex[0] == 1: # if index 1 is not already an apex
             apex = np.insert(apex, 0, 1) # inject index 1 as apex
             v_apex = np.insert(v_apex, 0, 0) # inject standing start
@@ -377,6 +377,7 @@ def simulate(veh, tr, simname, logid):
             v_apex[0] = 0 # set standing start at index 0
     # checking if no apexes found and adding one if needed
     if len(apex) == 0:
+        print(len(v_max))
         v_apex, apex = min(v_max)
     # reordering apexes for solver time optimization
     apex_table = np.sort([v_apex, apex], 1)
@@ -421,7 +422,7 @@ def simulate(veh, tr, simname, logid):
             elif k == 2: # deceleration
                 mode = -1
                 k_rest = 1
-            if not (tr.info.config == 'Open' and mode==-1 and i == 1): # does not run in decel mode at standing start in open track
+            if not (tr.config == 'Open' and mode==-1 and i == 1): # does not run in decel mode at standing start in open track
                 # getting other apex for later checking
                 i_rest = other_points(i, N)
                 if len(i_rest) == 0:
@@ -438,12 +439,12 @@ def simulate(veh, tr, simname, logid):
                 # setting apex flag
                 flag[j, k] = True
                 # getting next point index
-                j_next = next_point(j, tr.n, mode, tr.info.config)
+                j_next = next_point(j, tr.n, mode, tr.config)
                 if not (tr.into.config == 'Open' and mode == 1 and i == 1): # if not in standing start
                     # assume same speed right after apex
                     v[j_next, i, k] = v[j, i, k]
                     # moving to the next point index
-                    j_next, j = next_point(j, tr.n, mode, tr.info.config)
+                    j_next, j = next_point(j, tr.n, mode, tr.config)
                 while True:
                     # writing to log file
                     logid.write(i, j, k, tr.x[j], v[j, i, k], v_max[j])
@@ -459,12 +460,12 @@ def simulate(veh, tr, simname, logid):
                     # updating flag and progress bar
                     flag = flag_update(flag, j, k, prg_size, logid, prg_pos)
                     # moving to next point index
-                    j_next, j = next_point(j, tr.n, mode, tr.info.config)
+                    j_next, j = next_point(j, tr.n, mode, tr.config)
                     # checking if lap is completed
-                    if tr.info.config == 'Closed':
+                    if tr.config == 'Closed':
                         if j == apex[i]: # made it to the same apex
                             return
-                    elif tr.info.config == 'Open':
+                    elif tr.config == 'Open':
                         if j == tr.n: # mad it to the end
                             flag = flag_update(flag, j, k, prg_size, logid, prg_pos)
                         if j==1: # made it to the start
@@ -516,14 +517,14 @@ def simulate(veh, tr, simname, logid):
     logid.write('Correct solution selected from modes.\n')
 
     # laptime calculation
-    if tr.info.config == 'Open':
-        time = np.cumsum([tr.dx[2]/V[2], tr.dx[2:]/V[2:]])
+    if tr.config == 'Open':
+        timer = np.cumsum([tr.dx[2]/V[2], tr.dx[2:]/V[2:]])
     else:
-        time = np.cumsum(tr.dx/V)
+        timer = np.cumsum(tr.dx/V)
     sector_time = np.zeros(max(tr.sector), 1)
     for i in range(1, max(tr.sector)):
-        sector_time[i] = max(time(tr.sector==i))-min(time(tr.sector==i))
-    laptime = time[-1]
+        sector_time[i] = max(timer(tr.sector==i))-min(timer(tr.sector==i))
+    laptime = timer[-1]
 
     # HUD
     print('Laptime calculated.')
@@ -738,7 +739,8 @@ tr = OpenTRACK(trackfile)
 
 ## Loading car
 
-veh = OpenVEHICLE(vehiclefile)
+#veh = OpenVEHICLE(vehiclefile)
+veh = OpenVEHICLE()
 
 ## Export frequency
 
@@ -758,7 +760,8 @@ logid = open(logfile, 'a')
 # HUD
 
 if not os.path.exists('OpenLAP Sims'): os.makedirs('OpenLAP Sims')
-if os.path.exists(logfile): os.remove(logfile)
+#if os.path.exists(logfile): 
+#    os.remove(logfile)
 lg = '_______                    _____________________ \n__  __ \______________________  /___    |__  __ \\\n_  / / /__  __ \  _ \_  __ \_  / __  /| |_  /_/ /\n/ /_/ /__  /_/ /  __/  / / /  /___  ___ |  ____/\n\____/ _  .___/\___//_/ /_//_____/_/  |_/_/      \n       /_/                                       '
 print(lg) # command window
 print('=================================================')
