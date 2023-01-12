@@ -355,6 +355,7 @@ def simulate(veh, tr, simname, logid):
     ## maximum speed curve (assuming pure lateral condition)
 
     v_max = np.zeros(tr.n)
+    print(v_max)
     bps_v_max = np.zeros(tr.n)
     tps_v_max = np.zeros(tr.n)
     for i in range(1, tr.n):
