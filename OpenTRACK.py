@@ -437,7 +437,108 @@ def fill_in(self):
 
         ## Functions
         ## Line 665 to end
-        # read_info
-        # read_shape_data
-        # read_data
-        # read_logged_data
+        def read_info(self, workbookFile, sheetName=1, startRow=1, endRow=7):
+            # Input handling
+            # If no sheet is specified, read first sheet
+            # Setup the Import Options
+            opts = spreadsheetImportOptions('NumVariables', 2)
+            # Specify sheet and range
+            opts.Sheet = sheetName
+            opts.DataRange = 'A' + startRow[0] + ':B' + endRow[0]
+            # Specify column names and types
+            opts.VariableNames = ['info', 'data']
+            opts.VariableTypes = ['string', 'string']
+            opts = setvaropts(opts, [1, 2], 'WhitespaceRule', 'preserve')
+            opts = setvaropts(opts, [1, 2], 'EmptyFieldRule', 'auto')
+            # Import the data
+            tbl = readtable(workbookFile, opts, 'UseExcel', False)
+            for idx in range(2, len(startRow)):
+                opts.DataRange = 'A' + startRow[idx] + ':B' + endRow[idx]
+                tb = readtable(workbookFile, opts, 'UseExcel', False)
+                tbl = [tbl, tb]
+            # Convert to output type
+            data = tbl.data
+            self.name = data[0]
+            self.country = data[1]
+            self.city = data[2]
+            self.type = data[3]
+            self.config = data[4]
+            self.direction = data[5]
+            self.mirror = data[6]
+        
+        def read_shape_data(self, workbookFile, sheetName=1, startRow=2, endRow=10000):
+            # Input handling
+            # If no sheet if specified, read first sheet
+            # If row start and end points are not specified, define defaults
+            # Setup the Import Options
+            opts = opts = spreadsheetImportOptions('NumVariables', 3)
+            #Specify sheet and range
+            opts.Sheet = sheetName
+            opts.DataRange = 'A' + startRow[0] + ':C' + endRow[0]
+            # Specify column names and types
+            opts.VariableNames = ['Type', 'SectionLength', 'CornerRadius']
+            opts.VariableTypes = ['categorical', 'double', 'double']
+            opts = setvaropts(opts, 1, 'EmptyFieldRule', 'auto')
+            # Setup rules for import
+            opts.MissingRule = 'omitrow'
+            opts = setvaropts(opts, [2, 3], 'TreatAsMissing', '')
+            # Import the data
+            tbl = readtable(workbookFile, opts, 'UseExcel', False)
+            for idx in range(2, len(startRow)):
+                opts.DataRange = 'A' + startRow[idx] + ':C' + endRow[idx]
+                tb = readtable(workbookFile, opts, 'UseExcel', False)
+                tbl = [tbl, tb]
+            
+        def read_data(self, workbookFile, sheetName=1, startRow=2, endRow=10000):
+            # Input Handling
+            # If no sheet is specified, read first sheet
+            # If row start and end points are not specified, define defaults
+            # Setup the Import Options
+            opts = spreadsheetImportOptions('NumVariables', 2)
+            # Specify sheet and range
+            opts.Sheet = sheetName
+            opts.DataRange = 'A' + startRow[0] + ':B' + endRow[0]
+            # Specify column names and types
+            opts.VariableNames = ['Point', 'Data']
+            opts.VariableTypes = ['double', 'double']
+            opts = setvaropts(opts, [1, 2], 'TreatAsMissing', '')
+            # Import the data
+            data = readtable(workbookFile, opts, 'UseExcel', False)
+            for idx in range(2, len(startRow)):
+                opts.DataRange = 'A' + startRow[idx] + ':B' + endRow[idx]
+                tb = readtable(workbookFile, opts, 'UseExcel', False)
+                data = [data, tb]
+            
+        def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_startRow=14, data_endRow=np.inf):
+            fileID = open(filename, 'r')
+
+            # Header array
+            # Format for each line of text:
+            header_formatSpec = '%s%s%s%s%s%s%s%s%s%s%s%[^\n\r]'
+            # Read columns of data according to the format
+            headerArray = textscan(fileID, header_formatSpec, header_endRow[0]-header_startRow[0]+1, 'Delimiter', delimiter, 'TextType', 'string', 'HeaderLines', header_startRow[0]-1, 'ReturnOnError', False, 'EndOfLine', '\r\n')
+            for block in range(2, len(header_startRow)):
+                frewind(fileID)
+                dataArrayBlock = textscan(fileID, header_formatSpec, header_endRow(block)-header_startRow(block)+1, 'Delimiter', delimiter, 'TextType', 'string', 'HeaderLines', header_startRow(block)-1, 'ReturnOnError', False, 'EndOfLine', '\r\n')
+                for col in range(1,len(headerArray)):
+                    headerArray[col] = [headerArray[col], dataArrayBlock[col]]
+            # Create output variable
+            header = headerArray[1, -2]
+
+            # Data array
+            # Pointer to start of file
+            fseek(fileID, 0, 'bof')
+            # Format for each line of text
+            data_formatSpec = '%f%f%f%f%f%f%f%f%f%f%f%[^\n\r]'
+            # Read columns of data according to the format
+            dataArray = textscan(fileID, data_formatSpec, data_endRow[0]-data_startRow[0]+1, 'Delimiter', delimiter, 'TextType', 'string', 'HeaderLines', data_startRow[0]-1, 'ReturnOnError', False, 'EndOfLine', '\r\n')
+            for block in range(2, len(data_startRow)):
+                frewind(fileID)
+                dataArrayBlock = textscan(fileID, data_formatSpec, data_endRow(block)-data_startRow(block)+1, 'Delimiter', delimiter, 'TextType', 'string', 'HeaderLines', data_startRow(block)-1, 'ReturnOnError', False, 'EndOfLine', '\r\n')
+                for col in range(1,len(dataArray)):
+                    dataArray[col] = [dataArray[col], dataArrayBlock[col]]
+            # Create output variable
+            data = dataArray[1, -2]
+
+            # Close the text file
+            fclose(fileID)
