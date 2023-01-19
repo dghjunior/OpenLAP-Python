@@ -6,6 +6,7 @@ from scipy.signal import savgol_filter
 from scipy.spatial.transform import Rotation
 from scipy import signal
 import pandas as pd
+from scipy import interpolate
 
 # vehicle class declaration
 class OpenTRACK:
@@ -15,23 +16,23 @@ class OpenTRACK:
         
         ## Mode selection
 
-        # mode = 'logged data'
-        mode = 'shape data'
+        # self.mode = 'logged data'
+        self.mode = 'shape data'
         # log_mode = 'speed & yaw'
         self.log_mode = 'speed & latacc'
 
         ## Settings
 
         # meshing
-        mesh_size = 1 # [m]
+        self.mesh_size = 1 # [m]
         #filtering for logged data mode
-        filter_dt = 0.1 # [s]
+        self.filter_dt = 0.1 # [s]
         # track map rotation angle
-        rotation = 0 # [deg]
+        self.rotation = 0 # [deg]
         # track map shape adjuster
-        lambd = 1 # [-]
+        self.lambd = 1 # [-]
         # long corner adjuster
-        kappa = 1000 # [deg]
+        self.kappa = 1000 # [deg]
 
         ## Reading file
         ## TODO
@@ -48,7 +49,7 @@ class OpenTRACK:
 
         # HUD
         print('Reading track file: ' + self.filename)
-        if mode == 'logged data':
+        if self.mode == 'logged data':
             ## from logged data
 
             head, data = read_logged_data(self.filename)
@@ -134,12 +135,12 @@ class OpenTRACK:
 
 def fill_in(self):
 
-    info = read_info(self, self.filename, 'Info')
-    table_shape = read_shape_data(self, self.filename, 'Shape')
-    table_el = read_data(self, self.filename, 'Elevation')
-    table_bk = read_data(self, self.filename, 'Banking')
-    table_gf = read_data(self, self.filename, 'Grip Factors')
-    table_sc = read_data(self, self.filename, 'Sectors')
+    self.info = read_info(self, self.filename, 'Info')
+    self.table_shape = read_shape_data(self, self.filename, 'Shape')
+    self.table_el = read_data(self, self.filename, 'Elevation')
+    self.table_bk = read_data(self, self.filename, 'Banking')
+    self.table_gf = read_data(self, self.filename, 'Grip Factors')
+    self.table_sc = read_data(self, self.filename, 'Sectors')
     ## Track model name
 
     ## HUD
@@ -151,19 +152,19 @@ def fill_in(self):
         trackname = trackname + '_Mirrored'
     if os.path.exists(trackname+'.log'):
         os.remove(trackname+'.log')
-    print('_______                    ___    ________________  ________________________________')
-    print('__  __ \_____________________ |  / /__  ____/__  / / /___  _/_  ____/__  /___  ____/')
-    print('_  / / /__  __ \  _ \_  __ \_ | / /__  __/  __  /_/ / __  / _  /    __  / __  __/   ')
-    print('/ /_/ /__  /_/ /  __/  / / /_ |/ / _  /___  _  __  / __/ /  / /___  _  /___  /___   ')
-    print('\____/ _  .___/\___//_/ /_/_____/  /_____/  /_/ /_/  /___/  \____/  /_____/_____/   ')
-    print('       /_/                                                                          ')
+    print('_______                    ____________________________________ __')
+    print('__  __ \______________________  __/__  __ \__    |_  ____/__  //_/')
+    print('_  / / /__  __ \  _ \_  __ \_  /  __  /_/ /_  /| |  /    __  ,<   ')
+    print('/ /_/ /__  /_/ /  __/  / / /  /   _  _, _/_  ___ / /___  _  /| |  ')
+    print('\____/ _  .___/\___//_/ /_//_/    /_/ |_| /_/  |_\____/  /_/ |_|  ')
+    print('       /_/                                                        ')
     print('====================================================================================')
     print(self.filename)
     print('File read sucessfuly')
     print('====================================================================================')
     print('Name: ' + self.name)
     print('Type: ' + self.type)
-    print('Date: ' + datetime.datetime.now())
+    print('Date: ' + str(datetime.datetime.now()))
     print('====================================================================================')
     print('Track generation started.')
 
@@ -200,32 +201,35 @@ def fill_in(self):
         self.xs = self.x
     else: # shape data
         # turning radius
-        self.R = self.table_shape[:, 2]
+        self.R = self.table_shape['Corner Radius'].values
         # segment length
-        self.l = self.table_shape[:, 1]
+        self.l = self.table_shape['Section Length'].values
         # segment type
-        self.type_tmp = self.table_shape[:, 0]
+        self.type_tmp = self.table_shape['Type'].values
         # correcting straight segment radius
         self.R[self.R==0] = np.inf
         # total length
         self.L = sum(self.l)
         # segment type variable conversion to number
-        self.type = np.zeros(len(1), 1)
-        ## TODO
-        ## Lines 289-291
+        self.type = np.zeros((len(self.l), 1))
+        self.type[self.type_tmp == 'Straight'] = 0
+        self.type[self.type_tmp == 'Left'] = 1
+        self.type[self.type_tmp == 'Right'] = -1
         if self.mirror == 'On':
             self.type = -1*self.type
         # removing segments with zero length
-        self.R[self.l==0] = []
-        self.type[self.l==0] = []
-        self.l[self.l==0] = []
+        for i, v in enumerate(self.l):
+             if v == 0:
+                self.R = np.delete(self.R, i)
+                self.l = np.delete(self.l, i)
+                self.type = np.delete(self.type, i)
         # injecting points at long corners
         self.angle_seg = self.l/self.R
         j = 1
         self.RR = self.R
         self.ll = self.l
         self.tt = self.type
-        for i in range(1, len(self.l)):
+        for i in range(0, len(self.l)):
             if self.angle_seg[i] > self.kappa:
                 l_inj = min([self.ll[j]/3, self.kappa*self.R[i]])
                 self.ll = [self.ll[1:j-1], l_inj, self.ll[j]*l_inj, l_inj, self.ll[j+1:]]
@@ -238,8 +242,8 @@ def fill_in(self):
         self.l = self.ll
         self.type = self.tt
         # replacing consecutive straights
-        for i in range (1, len(self.l)-1):
-            j = 1
+        for i in range(0, len(self.l)-1):
+            j = 0
             while True:
                 if self.type[i+j] == 0 and self.type[i] == 0 and self.l[i] != -1:
                     self.l[i] = self.l[i]+self.l[i+j]
@@ -247,16 +251,18 @@ def fill_in(self):
                 else:
                     break
                 j = j+1
-        self.R[self.l==-1] = []
-        self.type[self.l==-1] = []
-        self.l[self.l==-1] = []
+        for i, v in enumerate(self.l):
+             if v == -1:
+                self.R = np.delete(self.R, i)
+                self.l = np.delete(self.l, i)
+                self.type = np.delete(self.type, i)
         # final segment point calculation
         self.X = np.cumsum(self.l) # end position of each segment
         self.XC = np.cumsum(self.l)-self.l/2 # center position of each segment
-        j = 1 # index
-        self.x = np.zeros(len(self.X)+sum(self.R==np.inf), 1) # preallocation
-        self.r = np.zeros(len(self.X)+sum(self.R==np.inf), 1) # preallocation
-        for i in range(1, len(self.X)):
+        j = 0 # index
+        self.x = np.zeros((len(self.X)+sum(self.R==np.inf), 1)) # preallocation
+        self.r = np.zeros((len(self.X)+sum(self.R==np.inf), 1)) # preallocation
+        for i in range(0, len(self.X)):
             if self.R[i] == np.inf: # end of straight point injection
                 self.x[j] = self.X[i]-self.l[i]
                 self.x[j+1] = self.X[i]
@@ -266,26 +272,22 @@ def fill_in(self):
                 self.r[j] = self.type[i]/self.R[i]
                 j = j+1
         # getting data from tables and ignoring points with x>L
-        self.el = self.table_el
-        self.el[self.el[:, 0]>self.L, :] = []
-        self.bk = self.table_bk
-        self.bk[self.bk[:, 0]>self.L, :] = []
-        self.gf = self.table_gf
-        self.gf[self.gf[:, 0]>self.L, :] = []
-        self.sc = self.table_sc
-        self.sc[self.sc[:, 0]>self.L, :] = []
-        self.sc = [self.sc, [self.L, self.sc[-1, 1]]]
+        self.el = self.table_el['Elevation [m]'].values
+        self.el = self.el[self.el < self.L]
+        self.bk = self.table_bk['Banking [deg]'].values
+        self.bk = self.bk[self.bk < self.L]
+        self.gf = self.table_gf['Grip Factor [-]'].values
+        self.gf = self.gf[self.gf < self.L]
+        self.sc = self.table_sc['Sector'].values
+        self.sc = self.sc[self.sc < self.L]
+        self.sc[-1] = self.sc[-2]
         # saving coarse position vectors
         self.xx = self.x
-        self.xe = self.el[:, 0]
-        self.xb = self.bk[:, 0]
-        self.xg = self.gf[:, 0]
-        self.xs = self.sc[:, 0]
+        self.xe = self.table_el['Point [m]'].values
+        self.xb = self.table_bk['Point [m]'].values
+        self.xg = self.table_gf['Start Point [m]'].values
+        self.xs = self.table_sc['Start Point [m]'].values
         # saving coarse topology
-        self.el = self.el[:, 1]
-        self.bk = self.bk[:, 1]
-        self.gf = self.gf[:, 1]
-        self.sc = self.sc[:, 1]
     # HUD
     print('Pro-processing completed')
 
@@ -302,26 +304,26 @@ def fill_in(self):
     # number of mesh points
     self.n = len(self.x)
     # fine curvature vector
-    self.r = np.interp1d(self.xx, self.r, self.x, 'pchip', 'extrap')
+    self.r = interpolate.PchipInterpolator(self.xx, self.r, self.x, True)
     # elevation
-    self.Z = np.interp1d(self.xe, self.el, self.x, 'linear', 'extrap')
+    self.Z = interpolate.interp1d(self.xe, self.el, self.x, 'linear', 'extrap')
     # banking
-    self.bank = np.interp1d(self.xb, self.bk, self.x, 'linear', 'extrap')
+    self.bank = interpolate.interp1d(self.xb, self.bk, self.x, 'linear', 'extrap')
     # inclination
     self.incl = -1*np.arctan(np.diff(self.Z)/np.diff(self.x))
     self.incl = [self.incl, self.incl[-1]]
     # grip factor
-    self.factor_grip = np.interp1d(self.xg, self.gf, self.x, 'linear', 'extrap')
+    self.factor_grip = interpolate.interp1d(self.xg, self.gf, self.x, 'linear', 'extrap')
     # sector
-    self.sector = np.interp1d(self.xs, self.sc, self.x, 'previous', 'extrap')
+    self.sector = interpolate.interp1d(self.xs, self.sc, self.x, 'previous', 'extrap')
     # HUD
     print('Fine meshing completed with mesh size: ' + self.mesh_size + '[m]')
 
     ## Map generation
 
     # coordinate vector preallocation
-    self.X = np.zeros(self.n, 1)
-    self.Y = np.zeros(self.n, 1)
+    self.X = np.zeros((self.n, 1))
+    self.Y = np.zeros((self.n, 1))
     # segment angles
     self.angle_seg = np.cumsum(self.r*self.dx)
     # heading angles
@@ -425,8 +427,8 @@ def fill_in(self):
     self.mapw = max(self.XX) # getting new map width [columns]
     self.map = np.chararray(self.maph, self.mapw) # preallocating map
     # looping through characters
-    for i in range(1, self.maph):
-        for j in range(1, self.mapw):
+    for i in range(0, self.maph):
+        for j in range(0, self.mapw):
             self.check = [self.XX, self.YY] == [j, i] # checking if pixel is on
             self.check = self.check[:, 0] * self.check[:, 1] # combining truth table
             if max(self.check):
@@ -472,7 +474,7 @@ def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_s
     for block in range(2, len(header_startRow)):
         fileID.seek(0)
         dataArrayBlock = np.loadtxt(fileID, header_endRow(block)-header_startRow(block)+1, delimiter=delimiter)
-        for col in range(1,len(headerArray)):
+        for col in range(0,len(headerArray)):
             headerArray[col] = [headerArray[col], dataArrayBlock[col]]
     # Create output variable
     header = headerArray[1, -2]
@@ -487,7 +489,7 @@ def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_s
     for block in range(2, len(data_startRow)):
         fileID.seek(0)
         dataArrayBlock = np.loadtxt(fileID, data_formatSpec, data_endRow(block)-data_startRow(block)+1, delimiter=delimiter)
-        for col in range(1,len(dataArray)):
+        for col in range(0,len(dataArray)):
             dataArray[col] = [dataArray[col], dataArrayBlock[col]]
     # Create output variable
     data = dataArray[1, -2]

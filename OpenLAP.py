@@ -731,8 +731,11 @@ start_time = time.time()
 
 ## Filnames
 
-trackfile = 'OpenTRACK Tracks/OpenTRACK_Spa-Francorchamps_Closed_Forward.mat'
-vehiclefile = 'OpenVEHICLE Vehicles/OpenVEHICLE_Formula 1_Open Wheel.mat'
+#trackfile = 'OpenTRACK Tracks/OpenTRACK_Spa-Francorchamps_Closed_Forward.mat'
+#vehiclefile = 'OpenVEHICLE Vehicles/OpenVEHICLE_Formula 1_Open Wheel.mat'
+trackfile = 'Spa-Francorchamps.xlsx'
+vehiclefile = 'Formula 1.xlsx'
+
 
 ## Loading circuit
 
@@ -740,8 +743,7 @@ tr = OpenTRACK(trackfile)
 
 ## Loading car
 
-#veh = OpenVEHICLE(vehiclefile)
-veh = OpenVEHICLE()
+veh = OpenVEHICLE(vehiclefile)
 
 ## Export frequency
 
