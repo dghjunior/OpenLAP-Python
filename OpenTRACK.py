@@ -494,5 +494,3 @@ def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_s
 
     # Close the text file
     fileID.close()
-
-spa = OpenTRACK()
