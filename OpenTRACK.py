@@ -293,7 +293,7 @@ def fill_in(self):
     ## Meshing
 
     # new fine position vector
-    self.x = list(np.arange(0, np.floor(self.L), self.mesh_size))
+    self.x = list(np.arange(0, np.floor(self.L)+1, self.mesh_size))
     if np.floor(self.L)<self.L: # check for injecting last point
         self.x.append(self.L)
     # distance step vector
@@ -327,7 +327,7 @@ def fill_in(self):
     self.Y = np.zeros((self.n, 1))
     # segment angles
     self.r = [arr.tolist() for arr in self.r.T.flatten()]
-    self.angle_seg = np.cumsum(np.multiply(self.r,self.dx)).tolist()
+    self.angle_seg = np.rad2deg(np.multiply(self.r,self.dx)).tolist()
     # heading angles
     self.angle_head = np.cumsum(self.angle_seg)
     if self.config == 'Closed': # tangency correction for closed track
@@ -336,25 +336,30 @@ def fill_in(self):
             self.angle_head[-1]-np.sign(self.angle_head[-1])*360
         ]
         self.idx = int(min(np.abs(self.dh)))
-        self.dh = self.dh[self.idx]
+        self.dh = self.dh[self.idx-1]
         self.angle_head = self.angle_head-self.x/self.L*self.dh
         self.angle_seg = [self.angle_head[0], np.diff(self.angle_head)]
     self.angle_head = self.angle_head-self.angle_head[0]
     # map generation
-    for i in range(2, self.n):
+    for i in range(1, self.n):
         # previous point
         p = [self.X[i-1], self.Y[i-1], 0]
         # next point
-        xyz = Rotation.from_matrix(self.angle_head[i-1]) * [self.dx[i-1], 0, 0] + p
+        rotz = Rotation.from_euler('z', self.angle_head[i-1], degrees=True).as_matrix().astype(int)
+        xyz = (np.dot(rotz, [int(self.dx[i-1]), int(0), int(0)]) + p).tolist()
         # saving point coordinates of next point
         self.X[i] = xyz[0]
         self.Y[i] = xyz[1]
     ## Apexes
 
     # finding Apexes
-    apex = signal.find_peaks(np.abs(self.r))
+    apex = signal.find_peaks(np.abs(self.r))[0] + 1
     # correcting corner type
-    self.r_apex = self.r[apex]
+    self.r_apex = [self.r[i-1] for i in apex]
+    self.X = self.X.flatten()
+    self.Y = self.Y.flatten()
+    self.Z = np.array(self.Z)
+
     # HUD
     print('Apex calculation completed')
 
@@ -375,10 +380,12 @@ def fill_in(self):
     
     # track rotation
     # rotating track map
-    xyz = Rotation.from_matrix(self.rotation) * [self.X, self.Y, self.Z]
-    self.X = xyz[0, :]
-    self.Y = xyz[1, :]
-    self.Z = xyz[2, :]
+    rotz = Rotation.from_euler('z', self.rotation, degrees=True).as_matrix().astype(int)
+    primes = np.array([self.X.conj(), self.Y.conj(), self.Z.conj()])
+    xyz = np.dot(rotz, primes)
+    self.X = xyz[0, :].conj()
+    self.Y = xyz[1, :].conj()
+    self.Z = xyz[2, :].conj()
     # HUD
     print('Track rotated')
 
