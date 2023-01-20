@@ -309,14 +309,23 @@ def fill_in(self):
     for i in range(0, len(self.x)):
         self.Z.append(z(self.x[i]).tolist())
     # banking
-    self.bank = interpolate.interp1d(self.xb, self.bk, kind='linear')
+    f = interpolate.interp1d(self.xb, self.bk, kind='linear', fill_value='extrapolate')
+    self.bank = []
+    for i in range(0, len(self.x)):
+        self.bank.append(f(self.x[i]).tolist())
     # inclination
     self.incl = -1*np.arctan(np.diff(self.Z)/np.diff(self.x))
     self.incl = [self.incl, self.incl[-1]]
     # grip factor
-    self.factor_grip = interpolate.interp1d(self.xg, self.gf, kind='linear')
+    f = interpolate.interp1d(self.xg, self.gf, kind='linear', fill_value='extrapolate')
+    self.factor_grip = []
+    for i in range(0, len(self.x)):
+        self.factor_grip.append(f(self.x[i]).tolist())
     # sector
-    self.sector = interpolate.interp1d(self.xs, self.sc, kind='previous')
+    f = interpolate.interp1d(self.xs, self.sc, kind='previous', fill_value='extrapolate')
+    self.sector = []
+    for i in range(0, len(self.x)):
+        self.sector.append(f(self.x[i]).tolist())
     # HUD
     print('Fine meshing completed with mesh size: ' + str(self.mesh_size) + '[m]')
 
@@ -409,7 +418,7 @@ def fill_in(self):
         # HUD
         print('Fine mesh map closed')
     # smooth track inclination
-    self.incl = savgol_filter(self.incl)
+    self.incl = smooth(self.incl, 5)
     # HUD
     print('Fine mesh map created')
 
@@ -433,14 +442,14 @@ def fill_in(self):
     self.YY = -1* self.YY - min(self.YY * -1) # flipping y and shifting to positive space
     self.XX = self.XX - min(self.XX) # shifting x to positive space
     self.p = np.unique([self.XX, self.YY], 'rows') # getting unique points
-    self.XX = self.p[:, 0]+1 # saving x
-    self.YY = self.p[:, 1]+1 # saving y
+    self.XX = self.p[:][0]+1 # saving x
+    self.YY = self.p[:][1]+1 # saving y
     self.maph = max(self.YY) # getting new map height [lines]
     self.mapw = max(self.XX) # getting new map width [columns]
     self.map = np.chararray(self.maph, self.mapw) # preallocating map
     # looping through characters
     for i in range(0, self.maph):
-        for j in range(0, self.mapw):
+        for j in range(0, int(self.mapw)):
             self.check = [self.XX, self.YY] == [j, i] # checking if pixel is on
             self.check = self.check[:, 0] * self.check[:, 1] # combining truth table
             if max(self.check):
@@ -452,6 +461,16 @@ def fill_in(self):
 
 ## Functions
 ## Line 665 to end
+def smooth(a,WSZ):
+    # a: NumPy 1-D array containing the data to be smoothed
+    # WSZ: smoothing window size needs, which must be odd number,
+    # as in the original MATLAB implementation
+    out0 = np.convolve(a,np.ones(WSZ,dtype=int),'valid')/WSZ    
+    r = np.arange(1,WSZ-1,2)
+    start = np.cumsum(a[:WSZ-1])[::2]/r
+    stop = (np.cumsum(a[:-WSZ:-1])[::2]/r)[::-1]
+    return np.concatenate((  start , out0, stop  ))
+
 def read_info(self, workbookFile, sheetName=1, startRow=1, endRow=7):
     # Input handling
     # If no sheet is specified, read first sheet
