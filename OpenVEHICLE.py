@@ -76,7 +76,7 @@ def fill_in(self):
     print('====================================================================================')
     print('Name: ' + self.name)
     print('Type: ' + self.type)
-    print('Date: ' + datetime.datetime.now())
+    print('Date: ' + str(datetime.datetime.now()))
     print('====================================================================================')
     print('Vehicle generation started.')
 

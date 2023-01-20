@@ -442,22 +442,23 @@ def fill_in(self):
     self.YY = -1* self.YY - min(self.YY * -1) # flipping y and shifting to positive space
     self.XX = self.XX - min(self.XX) # shifting x to positive space
     self.p = np.unique([self.XX, self.YY], 'rows') # getting unique points
-    self.XX = self.p[:][0]+1 # saving x
-    self.YY = self.p[:][1]+1 # saving y
+    self.XX = (self.p[:][0]+1).astype(int) # saving x
+    self.YY = (self.p[:][1]+1).astype(int) # saving y
     self.maph = max(self.YY) # getting new map height [lines]
     self.mapw = max(self.XX) # getting new map width [columns]
-    self.map = np.chararray(self.maph, self.mapw) # preallocating map
+    self.maph = 26
+    self.map = [[' ' for x  in range(self.maph)] for y in range(self.mapw)] # preallocating map
     # looping through characters
-    for i in range(0, self.maph):
-        for j in range(0, int(self.mapw)):
-            self.check = [self.XX, self.YY] == [j, i] # checking if pixel is on
-            self.check = self.check[:, 0] * self.check[:, 1] # combining truth table
+    for i in range(1, self.maph):
+        for j in range(1, int(self.mapw)):
+            # create array of all rows of [self.XX, self.YY] that match [j, i]
+            self.check = np.array([self.XX, self.YY]).T == [j, i]
+            self.check = self.check[:][0] * self.check[:][1] # combining truth table
             if max(self.check):
-                self.map[i, j] = 'o' # turning pixel on
-            else:
-                self.map[i, j] = ' ' # turning pixel off
+                self.map[i-1][j-1] = 'o' # turning pixel on
     print('Map: ')
-    print(self.map)
+    self.mapstr = str(self.map).replace('[', '').replace(']', '').replace(',', '').replace("'", '') # converting to string
+    print(self.mapstr)
 
 ## Functions
 ## Line 665 to end
