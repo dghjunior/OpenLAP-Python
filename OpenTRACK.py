@@ -218,23 +218,22 @@ def fill_in(self):
         if self.mirror == 'On':
             self.type = -1*self.type
         # removing segments with zero length
-        for i, v in enumerate(self.l):
-             if v == 0:
-                self.R = np.delete(self.R, i)
-                self.l = np.delete(self.l, i)
-                self.type = np.delete(self.type, i)
+        indices = np.where(self.l == -1)
+        self.R = np.delete(self.R, indices)
+        self.l = np.delete(self.l, indices)
+        self.type = np.delete(self.type, indices)
         # injecting points at long corners
-        self.angle_seg = self.l/self.R
-        j = 1
+        self.angle_seg = np.rad2deg(self.l/self.R)
+        j = 0
         self.RR = self.R
         self.ll = self.l
         self.tt = self.type
         for i in range(0, len(self.l)):
             if self.angle_seg[i] > self.kappa:
                 l_inj = min([self.ll[j]/3, self.kappa*self.R[i]])
-                self.ll = [self.ll[1:j-1], l_inj, self.ll[j]*l_inj, l_inj, self.ll[j+1:]]
-                self.RR = [self.RR[1:j-1], self.RR[j], self.RR[j], self.RR[j], self.RR[j+1:]]
-                self.tt = [self.tt[1:j-1], self.tt[j], self.tt[j], self.tt[j], self.tt[j+1:]]
+                self.ll = [self.ll[0:j-1], l_inj, self.ll[j]*l_inj, l_inj, self.ll[j+1:]]
+                self.RR = [self.RR[0:j-1], self.RR[j], self.RR[j], self.RR[j], self.RR[j+1:]]
+                self.tt = [self.tt[0:j-1], self.tt[j], self.tt[j], self.tt[j], self.tt[j+1:]]
                 j = j+3
             else:
                 j = j+1
@@ -243,7 +242,7 @@ def fill_in(self):
         self.type = self.tt
         # replacing consecutive straights
         for i in range(0, len(self.l)-1):
-            j = 0
+            j = 1
             while True:
                 if self.type[i+j] == 0 and self.type[i] == 0 and self.l[i] != -1:
                     self.l[i] = self.l[i]+self.l[i+j]
@@ -251,11 +250,10 @@ def fill_in(self):
                 else:
                     break
                 j = j+1
-        for i, v in enumerate(self.l):
-             if v == -1:
-                self.R = np.delete(self.R, i)
-                self.l = np.delete(self.l, i)
-                self.type = np.delete(self.type, i)
+        indices = np.where(self.l == -1)
+        self.R = np.delete(self.R, indices)
+        self.l = np.delete(self.l, indices)
+        self.type = np.delete(self.type, indices)
         # final segment point calculation
         self.X = np.cumsum(self.l) # end position of each segment
         self.XC = np.cumsum(self.l)-self.l/2 # center position of each segment
@@ -283,10 +281,11 @@ def fill_in(self):
         self.sc[-1] = self.sc[-2]
         # saving coarse position vectors
         self.xx = self.x
-        self.xe = self.table_el['Point [m]'].values
-        self.xb = self.table_bk['Point [m]'].values
-        self.xg = self.table_gf['Start Point [m]'].values
-        self.xs = self.table_sc['Start Point [m]'].values
+        self.xx = np.sort(self.xx.T.flatten()).tolist()
+        self.xe = self.table_el['Point [m]'].values.tolist()
+        self.xb = self.table_bk['Point [m]'].values.tolist()
+        self.xg = self.table_gf['Start Point [m]'].values.tolist()
+        self.xs = self.table_sc['Start Point [m]'].values.tolist()
         # saving coarse topology
     # HUD
     print('Pro-processing completed')
@@ -294,30 +293,32 @@ def fill_in(self):
     ## Meshing
 
     # new fine position vector
+    self.x = list(np.arange(0, np.floor(self.L), self.mesh_size))
     if np.floor(self.L)<self.L: # check for injecting last point
-        self.x = [np.arange(0, self.mesh_size, np.floor(self.L)), self.L]
-    else:
-        self.x = np.arange(0, self.mesh_size, np.floor(self.L))
+        self.x.append(self.L)
     # distance step vector
-    self.dx = np.diff(self.x)
-    self.dx = [self.dx, self.dx[-1]]
+    self.dx = np.diff(self.x).tolist()
+    self.dx.append(self.dx[-1])
     # number of mesh points
     self.n = len(self.x)
     # fine curvature vector
-    self.r = interpolate.PchipInterpolator(self.xx, self.r, self.x, True)
+    self.r = interpolate.pchip_interpolate(self.xx, self.r, self.x)
     # elevation
-    self.Z = interpolate.interp1d(self.xe, self.el, self.x, 'linear', 'extrap')
+    z = interpolate.interp1d(self.xe, self.el, kind='linear', fill_value='extrapolate')
+    self.Z = []
+    for i in range(0, len(self.x)):
+        self.Z.append(z(self.x[i]).tolist())
     # banking
-    self.bank = interpolate.interp1d(self.xb, self.bk, self.x, 'linear', 'extrap')
+    self.bank = interpolate.interp1d(self.xb, self.bk, kind='linear')
     # inclination
     self.incl = -1*np.arctan(np.diff(self.Z)/np.diff(self.x))
     self.incl = [self.incl, self.incl[-1]]
     # grip factor
-    self.factor_grip = interpolate.interp1d(self.xg, self.gf, self.x, 'linear', 'extrap')
+    self.factor_grip = interpolate.interp1d(self.xg, self.gf, kind='linear')
     # sector
-    self.sector = interpolate.interp1d(self.xs, self.sc, self.x, 'previous', 'extrap')
+    self.sector = interpolate.interp1d(self.xs, self.sc, kind='previous')
     # HUD
-    print('Fine meshing completed with mesh size: ' + self.mesh_size + '[m]')
+    print('Fine meshing completed with mesh size: ' + str(self.mesh_size) + '[m]')
 
     ## Map generation
 
@@ -325,12 +326,16 @@ def fill_in(self):
     self.X = np.zeros((self.n, 1))
     self.Y = np.zeros((self.n, 1))
     # segment angles
-    self.angle_seg = np.cumsum(self.r*self.dx)
+    self.r = [arr.tolist() for arr in self.r.T.flatten()]
+    self.angle_seg = np.cumsum(np.multiply(self.r,self.dx)).tolist()
     # heading angles
     self.angle_head = np.cumsum(self.angle_seg)
     if self.config == 'Closed': # tangency correction for closed track
-        self.dh = [np.mod(self.angle_head[-1], np.sign(self.angle_head[-1])*360), self.angle_head[-1]-np.sign(self.angle_head[-1]*360)]
-        self.idx = min(np.abs(self.dh))
+        self.dh = [
+            np.mod(self.angle_head[-1], np.sign(self.angle_head[-1])*360),
+            self.angle_head[-1]-np.sign(self.angle_head[-1])*360
+        ]
+        self.idx = int(min(np.abs(self.dh)))
         self.dh = self.dh[self.idx]
         self.angle_head = self.angle_head-self.x/self.L*self.dh
         self.angle_seg = [self.angle_head[0], np.diff(self.angle_head)]
