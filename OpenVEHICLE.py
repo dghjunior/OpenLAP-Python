@@ -82,10 +82,10 @@ def fill_in(self):
 
     ## Brake Model
 
-    br_pist_a = self.br_nop*np.pi*(self.br_pist_d/1000)**2/4 # [m^2]
-    br_mast_a = np.pi*(self.br_mast_d/1000)**2/4 # [m^2]
-    beta = self.tire_radius/(self.br_disc_d/2-self.br_pad_h/2)/br_pist_a/self.br_pad_mu/4 # [Pa/N] per wheel
-    phi = self.br_mast_a/self.br_ped_r*2 # [-] for both systems
+    self.br_pist_a = self.br_nop*np.pi*(self.br_pist_d/1000)**2/4 # [m^2]
+    self.br_mast_a = np.pi*(self.br_mast_d/1000)**2/4 # [m^2]
+    self.beta = self.tire_radius/(self.br_disc_d/2-self.br_pad_h/2)/self.br_pist_a/self.br_pad_mu/4 # [Pa/N] per wheel
+    self.phi = self.br_mast_a/self.br_ped_r*2 # [-] for both systems
     # HUD
     print('Braking model generated successfully.')
 
@@ -100,49 +100,49 @@ def fill_in(self):
     ## Driveline Model
 
     # getching engine curves
-    en_speed_curve = list(np.array(i * 1000 for i in range(1, len(self.torque_curve))))
-    en_torque_curve = self.torque_curve
-    en_power_curve = [num1 * num2 * 2 * np.pi / 60 for num1 in en_speed_curve for num2 in en_torque_curve]
+    self.en_speed_curve = list(np.array([i * 1000 for i in range(1, len(self.torque_curve))]))
+    self.en_torque_curve = self.torque_curve
+    self.en_power_curve = [num1 * num2 * 2 * np.pi / 60 for num1 in self.en_speed_curve for num2 in self.en_torque_curve]
     # memory preaalocation
     # wheel speed per gear for every engine speed value
-    wheel_speed_gear = np.zeros(len(en_speed_curve), self.nog)
+    self.wheel_speed_gear = np.zeros((len(self.en_speed_curve), self.nog))
     # vehicle speed per gear for every engine speed value
-    vehicle_speed_gear = np.zeros(len(en_speed_curve), self.nog)
+    self.vehicle_speed_gear = np.zeros((len(self.en_speed_curve), self.nog))
     # wheel torque per gear for every engine speed value
-    wheel_torque_gear = np.zeros(len(en_speed_curve), self.nog)
+    self.wheel_torque_gear = np.zeros((len(self.en_speed_curve), self.nog))
     # calculating values for each gear and engine speed
     for i in range(1, self.nog):
-        wheel_speed_gear[:, i] = en_speed_curve / self.ratio_gearbox[i] / self.ratio_final / self.ratio_primary
-        print(wheel_speed_gear)
-        vehicle_speed_gear[:, i] = wheel_speed_gear[:, i] * 2 * np.pi / 60 * self.tire_radius
-        wheel_torque_gear[:, i] = en_torque_curve * self.ratio_gearbox[i] * self.ratio_final * self.ratio_primary * self.n_primary * self.n_final * self.n_gearbox
+        self.wheel_speed_gear[:][i] = [n/self.ratio_primary/self.ratio_gearbox[i]/self.ratio_final for n in self.en_speed_curve]
+        print(self.wheel_speed_gear)
+        self.vehicle_speed_gear[:][i] = self.wheel_speed_gear[:][i] * 2 * np.pi / 60 * self.tire_radius
+        self.wheel_torque_gear[:][i] = self.en_torque_curve * self.ratio_gearbox[i] * self.ratio_final * self.ratio_primary * self.n_primary * self.n_final * self.n_gearbox
     # minimum and maximum vehicle speeds
-    v_min = min(vehicle_speed_gear)
-    v_max = max(vehicle_speed_gear)
+    self.v_min = min(self.vehicle_speed_gear)
+    self.v_max = max(self.vehicle_speed_gear)
     # new speed vector for fine meshing
     dv = 0.5/3.6
-    vehicle_speed = np.linspace(v_min, v_max, (v_max-v_min)/dv)
+    self.vehicle_speed = np.linspace(self.v_min, self.v_max, (self.v_max-self.v_min)/dv)
     # memory preallocation
     # gear
-    gear = np.zeros(len(vehicle_speed))
+    self.gear = np.zeros(len(self.vehicle_speed))
     # engine tractive force
-    fx_engine = np.zeros(len(vehicle_speed))
+    self.fx_engine = np.zeros(len(self.vehicle_speed))
     # engine tractive force per gear
-    fx = np.zeros(len(vehicle_speed), self.nog)
+    fx = np.zeros(len(self.vehicle_speed), self.nog)
     # optimizing gear selection and calculating tractive force
-    for i in range(1, len(vehicle_speed)):
+    for i in range(1, len(self.vehicle_speed)):
         # going through the gears
         for j in range(1, self.nog):
-            fx[i, j] = interpolate.interp1d(vehicle_speed_gear[:, j], wheel_torque_gear[:, j]/self.tire_radius, vehicle_speed[i], 'linear', 0)
+            fx[i][j] = interpolate.interp1d(self.vehicle_speed_gear[:, j], self.wheel_torque_gear[:, j]/self.tire_radius, self.vehicle_speed[i], 'linear', 0)
         # getting maximum tractive force and gear
         fx_engine[i], gear[i] = max(fx[i, :])
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
-    vehicle_speed = np.insert(vehicle_speed, 0, 0)
+    self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0)
     gear = [gear[0], gear]
     fx_engine = [fx_engine[0], fx_engine]
     # final vectors
     # engine speed
-    engine_speed = self.ratio_final * self.ratio_gearbox[gear] * self.ratio_primary * vehicle_speed / self.tire_radius * 60 / 2 / np.pi
+    engine_speed = self.ratio_final * self.ratio_gearbox[gear] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi
     # wheel torque
     wheel_torque = fx_engine * self.tire_radius
     # engine torque
@@ -225,9 +225,9 @@ def fill_in(self):
     Wx = self.M*g*np.sin(incl)
     # speed map vector
     dv = 2
-    v = list(0, dv, v_max)
-    if v[-1] != v_max:
-        v.append(v_max)
+    v = list(0, dv, self.v_max)
+    if v[-1] != self.v_max:
+        v.append(self.v_max)
     # friction ellipse points
     N = 45
     # map preallocation
@@ -249,7 +249,7 @@ def fill_in(self):
         # max long dec available from tires
         ax_tire_max_dec = -1/self.M * (mux+dmx*(Nx-(Wz-Aero_Df)/4))*(Wz-Aero_Df)
         # getting power limit from engine
-        ax_power_limit = 1/self.M * interpolate.interp1d(vehicle_speed, self.factor_power, fx_engine, v[i])
+        ax_power_limit = 1/self.M * interpolate.interp1d(self.vehicle_speed, self.factor_power, fx_engine, v[i])
         ax_power_limit = ax_power_limit * np.ones(N, 1)
         # lat acc vector
         ay = ay_max*np.cos(np.linspace(0, 180, N))
