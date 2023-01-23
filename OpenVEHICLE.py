@@ -105,30 +105,29 @@ def fill_in(self):
     self.en_power_curve = [num1 * num2 * 2 * np.pi / 60 for num1 in self.en_speed_curve for num2 in self.en_torque_curve]
     # memory preaalocation
     # wheel speed per gear for every engine speed value
-    self.wheel_speed_gear = np.zeros((len(self.en_speed_curve), self.nog))
+    self.wheel_speed_gear = np.zeros((self.nog, len(self.en_speed_curve)))
     # vehicle speed per gear for every engine speed value
-    self.vehicle_speed_gear = np.zeros((len(self.en_speed_curve), self.nog))
+    self.vehicle_speed_gear = np.zeros((self.nog, len(self.en_speed_curve)))
     # wheel torque per gear for every engine speed value
-    self.wheel_torque_gear = np.zeros((len(self.en_speed_curve), self.nog))
+    self.wheel_torque_gear = np.zeros((self.nog, len(self.en_torque_curve)))
     # calculating values for each gear and engine speed
-    for i in range(1, self.nog):
-        self.wheel_speed_gear[:][i] = [n/self.ratio_primary/self.ratio_gearbox[i]/self.ratio_final for n in self.en_speed_curve]
-        print(self.wheel_speed_gear)
-        self.vehicle_speed_gear[:][i] = self.wheel_speed_gear[:][i] * 2 * np.pi / 60 * self.tire_radius
-        self.wheel_torque_gear[:][i] = self.en_torque_curve * self.ratio_gearbox[i] * self.ratio_final * self.ratio_primary * self.n_primary * self.n_final * self.n_gearbox
+    for i in range(0, self.nog):
+        self.wheel_speed_gear[i] = [n/self.ratio_primary/self.ratio_gearbox[i]/self.ratio_final for n in self.en_speed_curve]
+        self.vehicle_speed_gear[i] = self.wheel_speed_gear[i] * 2 * np.pi / 60 * self.tire_radius
+        self.wheel_torque_gear[i] = [n * self.ratio_gearbox[i] * self.ratio_final * self.ratio_primary * self.n_primary * self.n_final * self.n_gearbox for n in self.en_torque_curve]
     # minimum and maximum vehicle speeds
-    self.v_min = min(self.vehicle_speed_gear)
-    self.v_max = max(self.vehicle_speed_gear)
+    self.v_min = np.amin(self.vehicle_speed_gear).item()
+    self.v_max = np.amax(self.vehicle_speed_gear).item()
     # new speed vector for fine meshing
     dv = 0.5/3.6
-    self.vehicle_speed = np.linspace(self.v_min, self.v_max, (self.v_max-self.v_min)/dv)
+    self.vehicle_speed = np.arange(self.v_min, self.v_max, (self.v_max-self.v_min)/dv)
     # memory preallocation
     # gear
-    self.gear = np.zeros(len(self.vehicle_speed))
+    gear = np.zeros(len(self.vehicle_speed))
     # engine tractive force
-    self.fx_engine = np.zeros(len(self.vehicle_speed))
+    fx_engine = np.zeros(len(self.vehicle_speed))
     # engine tractive force per gear
-    fx = np.zeros(len(self.vehicle_speed), self.nog)
+    fx = np.zeros((len(self.vehicle_speed), self.nog))
     # optimizing gear selection and calculating tractive force
     for i in range(1, len(self.vehicle_speed)):
         # going through the gears
@@ -142,11 +141,11 @@ def fill_in(self):
     fx_engine = [fx_engine[0], fx_engine]
     # final vectors
     # engine speed
-    engine_speed = self.ratio_final * self.ratio_gearbox[gear] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi
+    engine_speed = [self.ratio_final * self.ratio_gearbox[int(g.item())] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi for g in gear]
     # wheel torque
     wheel_torque = fx_engine * self.tire_radius
     # engine torque
-    engine_torque = wheel_torque / self.ratio_final / self.ratio_gearbox[gear] / self.ratio_primary / self.n_primary / self.n_final / self.n_gearbox
+    engine_torque = [wheel_torque / self.ratio_final / self.ratio_gearbox[g] / self.ratio_primary / self.n_primary / self.n_final / self.n_gearbox for g in gear]
     # engine power
     engine_power = engine_torque * engine_speed * 2 * np.pi / 60
     # HUD
@@ -272,3 +271,5 @@ def fill_in(self):
     ## Plot
 
     # figure
+
+veh = OpenVEHICLE('Formula 1.xlsx')
