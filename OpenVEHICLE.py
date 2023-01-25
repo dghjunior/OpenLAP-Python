@@ -134,18 +134,20 @@ def fill_in(self):
         for j in range(1, self.nog):
             fx[i][j] = interpolate.interp1d(self.vehicle_speed_gear[:, j], self.wheel_torque_gear[:, j]/self.tire_radius, self.vehicle_speed[i], 'linear', 0)
         # getting maximum tractive force and gear
-        fx_engine[i], gear[i] = max(fx[i, :])
+        fx_engine[i], gear[i] = max(fx[i][:])
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
     self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0)
-    gear = [gear[0], gear]
-    fx_engine = [fx_engine[0], fx_engine]
+    gear = gear.tolist()
+    gear.insert(0, gear[0])
+    fx_engine = fx_engine.tolist()
+    fx_engine.insert(0, fx_engine[0])
     # final vectors
     # engine speed
-    engine_speed = [self.ratio_final * self.ratio_gearbox[int(g.item())] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi for g in gear]
+    engine_speed = [self.ratio_final * self.ratio_gearbox[int(g)] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi for g in gear]
     # wheel torque
     wheel_torque = fx_engine * self.tire_radius
     # engine torque
-    engine_torque = [wheel_torque / self.ratio_final / self.ratio_gearbox[g] / self.ratio_primary / self.n_primary / self.n_final / self.n_gearbox for g in gear]
+    engine_torque = [wheel_torque[int(t)]/self.ratio_final/self.ratio_gearbox[int(g)]/self.ratio_primary/self.n_primary/self.n_final/self.n_gearbox for t in wheel_torque for g in gear]
     # engine power
     engine_power = engine_torque * engine_speed * 2 * np.pi / 60
     # HUD
