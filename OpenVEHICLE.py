@@ -144,12 +144,13 @@ def fill_in(self):
     # final vectors
     # engine speed
     engine_speed = [self.ratio_final * self.ratio_gearbox[int(g)] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi for g in gear]
+    engine_speed = [s.tolist() for s in engine_speed]
     # wheel torque
     wheel_torque = fx_engine * self.tire_radius
     # engine torque
     engine_torque = [wheel_torque[int(t)]/self.ratio_final/self.ratio_gearbox[int(g)]/self.ratio_primary/self.n_primary/self.n_final/self.n_gearbox for t in wheel_torque for g in gear]
     # engine power
-    engine_power = engine_torque * engine_speed * 2 * np.pi / 60
+    engine_power = [t * s * 2 * np.pi / 60 for t in engine_torque for s in engine_speed]
     # HUD
     print('Driveline model generated successfully.')
 
