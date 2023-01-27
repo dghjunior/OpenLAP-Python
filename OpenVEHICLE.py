@@ -13,8 +13,8 @@ class OpenVEHICLE:
         self.name = 'Formula 1'
         self.type = 'Open Wheel'
         self.M = 650 # kg
-        self.df = 45 # %
-        self.L = 3000 # mm
+        self.df = 0.45 # %
+        self.L = 3 # m
         self.rack = 10 # steering rack ratio
         self.Cl = -4.8 # lift coefficient
         self.Cd = -1.2 # drag coefficient
@@ -31,7 +31,7 @@ class OpenVEHICLE:
         self.br_mast_d = 25 # mm
         self.br_ped_r = 4 # pedal ratio
         self.factor_grip = 1
-        self.tire_radius = 330 # mm
+        self.tire_radius = 0.33 # mm
         self.Cr = -0.001 # rolling resistance coefficient
         self.mu_x = 2.0 # longitudinal friction coefficient
         self.mu_x_M = 250 # kg
@@ -91,29 +91,29 @@ def fill_in(self):
 
     ## Steering Model
 
-    a = (1-self.df)*self.L # distance of front axle from center of mass [mm]
+    a = round((1-self.df)*self.L, 4) # distance of front axle from center of mass [mm]
     b = -1*self.df*self.L # distance of rear axle from center of mass [mm]
-    C = [2*self.CF, 2*(self.CF+self.CR), 2*self.CF*a, 2*self.CR*b] # steering model matrix
+    C = [[2*self.CF, 2*(self.CF+self.CR)],[int(2*self.CF*a), int(2*(self.CF*a+self.CR*b))]] # steering model matrix
     # HUD
     print('Steering model generated successfully.')
 
     ## Driveline Model
 
     # getching engine curves
-    self.en_speed_curve = list(np.array([i * 1000 for i in range(1, len(self.torque_curve))]))
+    self.en_speed_curve = list(np.array([i * 1000 for i in range(1, len(self.torque_curve)+1)]))
     self.en_torque_curve = self.torque_curve
     self.en_power_curve = [num1 * num2 * 2 * np.pi / 60 for num1 in self.en_speed_curve for num2 in self.en_torque_curve]
     # memory preaalocation
     # wheel speed per gear for every engine speed value
-    self.wheel_speed_gear = np.zeros((self.nog, len(self.en_speed_curve)))
+    self.wheel_speed_gear = np.zeros((self.nog, len(self.en_speed_curve))).tolist()
     # vehicle speed per gear for every engine speed value
-    self.vehicle_speed_gear = np.zeros((self.nog, len(self.en_speed_curve)))
+    self.vehicle_speed_gear = np.zeros((self.nog, len(self.en_speed_curve))).tolist()
     # wheel torque per gear for every engine speed value
-    self.wheel_torque_gear = np.zeros((self.nog, len(self.en_torque_curve)))
+    self.wheel_torque_gear = np.zeros((self.nog, len(self.en_torque_curve))).tolist()
     # calculating values for each gear and engine speed
     for i in range(0, self.nog):
         self.wheel_speed_gear[i] = [n/self.ratio_primary/self.ratio_gearbox[i]/self.ratio_final for n in self.en_speed_curve]
-        self.vehicle_speed_gear[i] = self.wheel_speed_gear[i] * 2 * np.pi / 60 * self.tire_radius
+        self.vehicle_speed_gear[i] = [w * 2 * np.pi / 60 * self.tire_radius for w in self.wheel_speed_gear[i]]
         self.wheel_torque_gear[i] = [n * self.ratio_gearbox[i] * self.ratio_final * self.ratio_primary * self.n_primary * self.n_final * self.n_gearbox for n in self.en_torque_curve]
     # minimum and maximum vehicle speeds
     self.v_min = np.amin(self.vehicle_speed_gear).item()
@@ -136,7 +136,7 @@ def fill_in(self):
         # getting maximum tractive force and gear
         fx_engine[i], gear[i] = max(fx[i][:])
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
-    self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0)
+    self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0).tolist()
     gear = gear.tolist()
     gear.insert(0, gear[0])
     fx_engine = fx_engine.tolist()
