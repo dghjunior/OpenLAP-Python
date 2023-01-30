@@ -130,26 +130,27 @@ def fill_in(self):
     # engine tractive force per gear
     fx = np.zeros((len(self.vehicle_speed), self.nog)).tolist()
     # optimizing gear selection and calculating tractive force
-    for i in range(1, len(self.vehicle_speed)):
+    for i in range(0, len(self.vehicle_speed)):
         # going through the gears
-        for j in range(1, self.nog):
+        for j in range(0, self.nog):
             x = self.vehicle_speed_gear[:][j]
-            y = [wtg/self.tire_radius for wtg in self.wheel_torque[:][j]]
+            y = [wtg/self.tire_radius for wtg in self.wheel_torque_gear[:][j]]
             xq = self.vehicle_speed[i]
-            f = interpolate.interp1d(x, y, kind='linear', fill_value='extrapolate')
-            fx[i][j] = f(self.vehicle_speed[i])
+            f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
+            fx[i][j] = f(self.vehicle_speed[i]).tolist()
         # getting maximum tractive force and gear
-        fx_engine[i], gear[i] = max(fx[i][:])
+        fx_engine[i] = max(fx[i])
+        gear[i] = fx[i].index(fx_engine[i]) + 1
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
     self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0).tolist()
-    gear = gear.tolist()
     gear.insert(0, gear[0])
-    fx_engine = fx_engine.tolist()
     fx_engine.insert(0, fx_engine[0])
     # final vectors
     # engine speed
-    engine_speed = [self.ratio_final * self.ratio_gearbox[int(g)] * self.ratio_primary * self.vehicle_speed / self.tire_radius * 60 / 2 / np.pi for g in gear]
-    engine_speed = [s.tolist() for s in engine_speed]
+    ratios = [self.ratio_gearbox[g-1] for g in gear]
+    ratio_mult = [self.ratio_final * self.ratio_primary * r for r in ratios]
+    tire_speed = [vs / self.tire_radius for vs in self.vehicle_speed]
+    engine_speed = [ratio_mult[i] * tire_speed[i] * 60 / 2 / np.pi for i in range(0, len(gear))]
     # wheel torque
     wheel_torque = fx_engine * self.tire_radius
     # engine torque
