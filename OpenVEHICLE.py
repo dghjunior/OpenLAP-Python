@@ -2,6 +2,7 @@
 import pandas as pd
 import os
 import datetime
+import math
 import numpy as np
 from scipy import interpolate
 
@@ -120,19 +121,23 @@ def fill_in(self):
     self.v_max = np.amax(self.vehicle_speed_gear).item()
     # new speed vector for fine meshing
     dv = 0.5/3.6
-    self.vehicle_speed = np.arange(self.v_min, self.v_max, (self.v_max-self.v_min)/dv)
+    self.vehicle_speed = np.linspace(self.v_min, self.v_max, math.floor((self.v_max-self.v_min)/dv)).tolist()
     # memory preallocation
     # gear
-    gear = np.zeros(len(self.vehicle_speed))
+    gear = np.zeros((len(self.vehicle_speed))).tolist()
     # engine tractive force
-    fx_engine = np.zeros(len(self.vehicle_speed))
+    fx_engine = np.zeros(len(self.vehicle_speed)).tolist()
     # engine tractive force per gear
-    fx = np.zeros((len(self.vehicle_speed), self.nog))
+    fx = np.zeros((len(self.vehicle_speed), self.nog)).tolist()
     # optimizing gear selection and calculating tractive force
     for i in range(1, len(self.vehicle_speed)):
         # going through the gears
         for j in range(1, self.nog):
-            fx[i][j] = interpolate.interp1d(self.vehicle_speed_gear[:, j], self.wheel_torque_gear[:, j]/self.tire_radius, self.vehicle_speed[i], 'linear', 0)
+            x = self.vehicle_speed_gear[:][j]
+            y = [wtg/self.tire_radius for wtg in self.wheel_torque[:][j]]
+            xq = self.vehicle_speed[i]
+            f = interpolate.interp1d(x, y, kind='linear', fill_value='extrapolate')
+            fx[i][j] = f(self.vehicle_speed[i])
         # getting maximum tractive force and gear
         fx_engine[i], gear[i] = max(fx[i][:])
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
