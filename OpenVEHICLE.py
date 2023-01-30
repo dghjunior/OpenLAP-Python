@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import datetime
 import math
+from tabulate import tabulate
 import numpy as np
 from scipy import interpolate
 
@@ -21,7 +22,7 @@ class OpenVEHICLE:
         self.Cd = -1.2 # drag coefficient
         self.factor_Cl = 1.0 # lift coefficient scale multiplier
         self.factor_Cd = 1.0 # drag coefficient scale multiplier
-        self.da = 50 # %
+        self.da = 0.5 # %
         self.A = 1 # m^2
         self.rho = 1.225 # kg/m^3
         self.br_disc_d = 250 # mm
@@ -152,9 +153,9 @@ def fill_in(self):
     tire_speed = [vs / self.tire_radius for vs in self.vehicle_speed]
     engine_speed = [ratio_mult[i] * tire_speed[i] * 60 / 2 / np.pi for i in range(0, len(gear))]
     # wheel torque
-    wheel_torque = fx_engine * self.tire_radius
+    wheel_torque = [e * self.tire_radius for e in fx_engine]
     # engine torque
-    engine_torque = [wheel_torque[int(t)]/self.ratio_final/self.ratio_gearbox[int(g)]/self.ratio_primary/self.n_primary/self.n_final/self.n_gearbox for t in wheel_torque for g in gear]
+    engine_torque = [wheel_torque[i] / self.ratio_final / ratios[i] /self.ratio_primary/self.n_primary/self.n_gearbox/self.n_final for i in range(0, len(gear))]
     # engine power
     engine_power = [t * s * 2 * np.pi / 60 for t in engine_torque for s in engine_speed]
     # HUD
@@ -163,23 +164,25 @@ def fill_in(self):
     ## Shifting points and Rev Drops
 
     # finding gear changes
-    gear_change = np.diff(gear)
+    gear_change = np.diff(gear).tolist()
     # getting speed right before and after gear change
-    gear_change = list(gear_change, 0, 0, gear_change)
+    indices = [ind for ind, ele in enumerate(gear_change) if ele == 1]
+    for i in indices:
+        gear_change[i+1] = 1
+    gear_change.append(0)
     # getting engine speed at gear change
-    engine_speed_gear_change = engine_speed[gear_change]
+    engine_speed_gear_change = [engine_speed[i] for i,c in enumerate(gear_change) if c == 1]
     # getting shift points
-    shift_points = engine_speed_gear_change[0:2:len(engine_speed_gear_change)]
+    shift_points = engine_speed_gear_change[::2]
     # getting arrive points
-    arrive_points = engine_speed_gear_change[1:2:len(engine_speed_gear_change)]
+    arrive_points = engine_speed_gear_change[1::2]
     # calculating revdrops
-    rev_drops = shift_points-arrive_points
+    rev_drops = [shift_points[i] - arrive_points[i] for i in range(0, len(shift_points))]
     # creating shifting table
-    rownames = [''] * self.nog-1
-    for i in range(1, self.nog-1):
-        rownames[i] = str(i) + '-' + str(i+1)
-    print(rownames)
-    shifting = pd.DataFrame({'Shift Points': shift_points, 'Arrive Points': arrive_points, 'Rev Drops': rev_drops}, index=rownames)
+    rownames = [''] * (self.nog-1)
+    for i in range(0, self.nog-1):
+        rownames[i] = str(i+1) + '-' + str(i+2)
+    shifting = pd.DataFrame({'shift_points': shift_points, 'arrive_points': arrive_points, 'rev_drops': rev_drops}, index=rownames)
     # HUD
     print('Shift points calculated successfully.')
 
@@ -203,13 +206,13 @@ def fill_in(self):
     
     # Z axis
     fz_mass = -1*self.M*g
-    fz_aero = 0.5*self.rho*self.factor_Cl*self.Cl*self.A*self.vehicle_speed**2
-    fz_total = fz_mass + fz_aero
-    fz_tire = (self.factor_drive*fz_mass+self.factor_aero*fz_aero)/self.driven_wheels
+    fz_aero = [0.5*self.rho*self.factor_Cl*self.Cl*self.A*(s**2) for s in self.vehicle_speed]
+    fz_total = [fz_mass + fa for fa in fz_aero]
+    fz_tire = [(self.factor_drive*fz_mass+self.factor_aero*fa)/self.driven_wheels for fa in fz_aero]
     # x axis
-    fx_aero = 0.5*self.rho*self.factor_Cd*self.Cd*self.A*self.vehicle_speed**2
-    fx_roll = self.Cr*np.abs(fz_total)
-    fx_tire = self.driven_wheels*(self.mu_x+self.sens_x*(self.mu_x_M*g-np.abs(fz_tire)))*np.abs(fz_tire)
+    fx_aero = [0.5*self.rho*self.factor_Cd*self.Cd*self.A*(s**2) for s in self.vehicle_speed]
+    fx_roll = (self.Cr*np.abs(fz_total)).tolist()
+    fx_tire = (self.driven_wheels*(self.mu_x+self.sens_x*(self.mu_x_M*g-np.abs(fz_tire)))*np.abs(fz_tire)).tolist()
     # HUD
     print('Forces calculated successfully.')
 
@@ -233,14 +236,14 @@ def fill_in(self):
     Wx = self.M*g*np.sin(incl)
     # speed map vector
     dv = 2
-    v = list(0, dv, self.v_max)
+    v = [i for i in range(0, math.ceil(self.v_max),dv)]
     if v[-1] != self.v_max:
         v.append(self.v_max)
     # friction ellipse points
     N = 45
     # map preallocation
-    GGV = np.zeros((len(v), 2*N-1), 3)
-    for i in range(1, len(v)):
+    GGV = np.zeros((len(v), 2*N-1, 3)).tolist()
+    for i in range(0, len(v)):
         # aero forces
         Aero_Df = 0.5*self.rho*self.factor_Cl*self.Cl*self.A * v[i]**2
         Aero_Dr = 0.5*self.rho*self.factor_Cd*self.Cd*self.A * v[i]**2
@@ -257,18 +260,22 @@ def fill_in(self):
         # max long dec available from tires
         ax_tire_max_dec = -1/self.M * (mux+dmx*(Nx-(Wz-Aero_Df)/4))*(Wz-Aero_Df)
         # getting power limit from engine
-        ax_power_limit = 1/self.M * interpolate.interp1d(self.vehicle_speed, self.factor_power, fx_engine, v[i])
-        ax_power_limit = ax_power_limit * np.ones(N, 1)
+        x = self.vehicle_speed
+        y = self.factor_power * fx_engine
+        f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
+        fx[i] = f(v[i]).tolist()
+        ax_power_limit = 1/self.M * fx[i]
+        ax_power_limit = (ax_power_limit * np.ones((N, 1))).tolist()
         # lat acc vector
-        ay = ay_max*np.cos(np.linspace(0, 180, N))
+        ay = np.conj(ay_max*np.cos(np.linspace(0, 180, N))).tolist().sort()
         # long acc vector
         ax_tire_acc = ax_tire_max_acc * np.sqrt(1-(ay/ay_max)**2)
-        ax_acc = min(ax_tire_acc, ax_power_limit)+ax_drag
+        ax_acc = min(min(ax_tire_acc), min(ax_power_limit))+ax_drag
         ax_dec = ax_tire_max_dec * np.sqrt(1-(ay/ay_max)**2)+ax_drag
         # saving GGV map
-        GGV[i, :, 1] = [ax_acc, ax_dec[2:]]
-        GGV[i, :, 2] = [ay, np.flipud(ay[2:])]
-        GGV[i, :, 3] = v[i] * np.ones(1, 2*N-1)
+        GGV[i][:][1] = [ax_acc, ax_dec[2:]]
+        GGV[i][:][2] = [ay, np.flipud(ay[2:])]
+        GGV[i][:][3] = v[i] * np.ones((1, 2*N-1))
     # HUD
     print('GGV map generated successfully.')
 
