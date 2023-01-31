@@ -4,8 +4,11 @@ import os
 import datetime
 import math
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+from matplotlib import cm
 from tabulate import tabulate
 import numpy as np
+import tkinter
 from scipy import interpolate
 
 # vehicle class declaration
@@ -105,7 +108,7 @@ def fill_in(self):
     # getching engine curves
     self.en_speed_curve = list(np.array([i * 1000 for i in range(1, len(self.torque_curve)+1)]))
     self.en_torque_curve = self.torque_curve
-    self.en_power_curve = [num1 * num2 * 2 * np.pi / 60 for num1 in self.en_speed_curve for num2 in self.en_torque_curve]
+    self.en_power_curve = [self.en_speed_curve[i] * self.en_torque_curve[i] * 2 * np.pi / 60 for i in range(0, len(self.en_speed_curve))]
     # memory preaalocation
     # wheel speed per gear for every engine speed value
     self.wheel_speed_gear = np.zeros((self.nog, len(self.en_speed_curve))).tolist()
@@ -244,6 +247,7 @@ def fill_in(self):
     N = 45
     # map preallocation
     GGV = np.zeros((len(v), 3, 2*N-1)).tolist()
+    fy = np.zeros((len(v), 2*N-1)).tolist()
     for i in range(0, len(v)):
         # aero forces
         Aero_Df = 0.5*self.rho*self.factor_Cl*self.Cl*self.A * v[i]**2
@@ -264,8 +268,8 @@ def fill_in(self):
         x = self.vehicle_speed
         y = self.factor_power * fx_engine
         f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
-        fx[i] = f(v[i]).tolist()
-        ax_power_limit = 1/self.M * fx[i]
+        fy[i] = f(v[i]).tolist()
+        ax_power_limit = 1/self.M * fy[i]
         ax_power_limit = (ax_power_limit * np.ones((N, 1))).tolist()
         # lat acc vector
         comp_conj = np.conj(np.cos(np.radians(np.linspace(0, 180, N)))).tolist()
@@ -288,8 +292,78 @@ def fill_in(self):
     #save(vehname+'.mat')
 
     ## Plot
-    fig = plt.figure()
-    ax = plt.axes(projection = '3d')
+
+    # figure
+    px = 1/plt.rcParams['figure.dpi']  # pixel in inches
+    root = tkinter.Tk()
+    width = root.winfo_screenwidth()
+    height = root.winfo_screenheight()
+    root.destroy()
+    H = 1200-90
+    W = 1600
+    Xpos = math.floor((width-W*px)/2)
+    Ypos = math.floor((height-H*px)/2)
+    f = plt.figure()
+    f.set_size_inches(W*px, H*px, forward=True)
+    gs = GridSpec(nrows=3, ncols=2)
+    f.suptitle(self.name, fontsize=16)
+    ax0 = f.add_subplot(gs[0, 0])
+
+
+    # engine curves
+    ax0.set_title('Engine Curve')
+    ax0.set_xlabel('Engine Speed [rpm]')
+    color = 'tab:blue'
+    ax0.plot(self.en_speed_curve,self.factor_power*self.en_torque_curve, color = color)
+    ax0.set_ylabel('Engine Torque [Nm]', color = color)
+    ax0.grid(True)
+    ax0.set_xlim(self.en_speed_curve[0],self.en_speed_curve[-1])
+    y = [self.factor_power*p/745.7 for p in self.en_power_curve]
+    ax0.tick_params(axis ='y', labelcolor = color)
+    ax1 = ax0.twinx()
+    color = 'tab:red'
+    ax1.set_ylabel('Engine Power [Hp]', color = color)
+    ax1.plot(self.en_speed_curve, y, color = color)
+    ax1.tick_params(axis = 'y', labelcolor = color)
+    
+    # gearing
+    ax2 = f.add_subplot(gs[1, 0])
+    color = 'tab:blue'
+    ax2.set_title('Gearing')
+    ax2.set_xlabel('Speed [m/s]')
+    ax2.plot(self.vehicle_speed,engine_speed, color = color)
+    ax2.set_ylabel('Engine Speed [rpm]', color = color)
+    ax2.grid(True)
+    ax2.set_xlim(self.vehicle_speed[0],self.vehicle_speed[-1])
+    color = 'tab:red'
+    ax3 = ax2.twinx()
+    ax3.plot(self.vehicle_speed,gear, color = color)
+    ax3.set_ylabel('Gear [-]', color = color)
+    ax3.set_ylim(gear[0]-1,gear[-1]+1)
+
+    # traction model
+    ax4 = f.add_subplot(gs[2, 0])
+    ax4.set_title('Traction Model')
+    color = 'black'
+    ax4.plot(self.vehicle_speed,self.factor_power*fx_engine, linewidth = 4, color = color)
+    ax4.plot(self.vehicle_speed, min([self.factor_power*fx_engine,fx_tire]), linewidth = 2, color = 'tab:red')
+    aero = [a * -1 for a in fx_aero]
+    ax4.plot(self.vehicle_speed, aero)
+    roll = [r * -1 for r in fx_roll]
+    ax4.plot(self.vehicle_speed, roll)
+    ax4.plot(self.vehicle_speed,fx_tire)
+    for i in range(0,self.nog):
+        effects = [row[i] for row in fx]
+        ax4.plot(self.vehicle_speed[1:],effects,'k--')
+    ax4.grid(True)
+    ax4.set_xlabel('Speed [m/s]')
+    ax4.set_ylabel('Force [N]')
+    ax4.set_xlim(self.vehicle_speed[0],self.vehicle_speed[-1])
+    ax4.legend({'Engine tractive force','Final tractive force','Aero drag','Rolling resistance','Max tyre tractive force','Engine tractive force per gear'},
+        loc='upper center', bbox_to_anchor=(0.5, -0.25), fancybox=True, shadow=True, ncol=2)
+
+    # ggv map
+    ax5 = f.add_subplot(gs[:, 1], projection = '3d')
     x = []
     y = []
     z = []
@@ -300,8 +374,16 @@ def fill_in(self):
     x = np.array(x)
     y = np.array(y)
     z = np.array(z)
-    ax.plot_surface(x, y, z)   
-    plt.title('GGV Map')
+    ax5.plot_surface(x, y, z)
+    my_col = cm.viridis(z/np.amax(z))
+    ax5.plot_surface(x, y, z, rstride=1, cstride=1, facecolors = my_col,
+        linewidth=0, antialiased=True)
+    ax5.set_title('GGV Map')
+    ax5.set_xlabel('Lat acc [m/s^2]')
+    ax5.set_ylabel('Long acc [m/s^2]')
+    ax5.set_zlabel('Speed [m/s]')
+    ax5.view_init(5, 15)
+    plt.tight_layout()
     plt.show()
 
 
