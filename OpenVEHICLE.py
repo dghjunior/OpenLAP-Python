@@ -384,5 +384,3 @@ def fill_in(self):
 
 
     # figure
-
-veh = OpenVEHICLE('Formula 1.xlsx')
