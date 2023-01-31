@@ -295,20 +295,13 @@ def fill_in(self):
 
     # figure
     px = 1/plt.rcParams['figure.dpi']  # pixel in inches
-    root = tkinter.Tk()
-    width = root.winfo_screenwidth()
-    height = root.winfo_screenheight()
-    root.destroy()
-    H = 1200-90
-    W = 1600
-    Xpos = math.floor((width-W*px)/2)
-    Ypos = math.floor((height-H*px)/2)
+    H = 900-90
+    W = 1200
     f = plt.figure()
     f.set_size_inches(W*px, H*px, forward=True)
     gs = GridSpec(nrows=3, ncols=2)
     f.suptitle(self.name, fontsize=16)
     ax0 = f.add_subplot(gs[0, 0])
-
 
     # engine curves
     ax0.set_title('Engine Curve')
@@ -383,6 +376,8 @@ def fill_in(self):
     ax5.set_ylabel('Long acc [m/s^2]')
     ax5.set_zlabel('Speed [m/s]')
     ax5.view_init(5, 15)
+    ax5.locator_params(axis='x', nbins=5)
+    f.canvas.manager.window.wm_geometry("+%d+%d" % (0, 0))
     plt.tight_layout()
     plt.show()
 
