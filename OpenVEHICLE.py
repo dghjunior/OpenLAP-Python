@@ -64,6 +64,7 @@ class OpenVEHICLE:
 
 def fill_in(self):
     ## HUD
+    os.system('clear')
 
     if not os.path.exists('OpenVEHICLE Vehicles'):
         os.makedirs('OpenVEHICLE Vehicles')
