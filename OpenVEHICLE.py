@@ -242,7 +242,7 @@ def fill_in(self):
     # friction ellipse points
     N = 45
     # map preallocation
-    GGV = np.zeros((len(v), 2*N-1, 3)).tolist()
+    GGV = np.zeros((len(v), 3, 2*N-1)).tolist()
     for i in range(0, len(v)):
         # aero forces
         Aero_Df = 0.5*self.rho*self.factor_Cl*self.Cl*self.A * v[i]**2
@@ -267,15 +267,16 @@ def fill_in(self):
         ax_power_limit = 1/self.M * fx[i]
         ax_power_limit = (ax_power_limit * np.ones((N, 1))).tolist()
         # lat acc vector
-        ay = np.conj(ay_max*np.cos(np.linspace(0, 180, N))).tolist().sort()
+        comp_conj = np.conj(np.cos(np.radians(np.linspace(0, 180, N)))).tolist()
+        ay = [ay_max * c for c in comp_conj]
         # long acc vector
-        ax_tire_acc = ax_tire_max_acc * np.sqrt(1-(ay/ay_max)**2)
-        ax_acc = min(min(ax_tire_acc), min(ax_power_limit))+ax_drag
-        ax_dec = ax_tire_max_dec * np.sqrt(1-(ay/ay_max)**2)+ax_drag
+        ax_tire_acc = (ax_tire_max_acc * np.sqrt(1-(ay/ay_max)**2)).tolist()
+        ax_acc = [min(ax_tire_acc[i], ax_power_limit[i][0])+ax_drag for i in range(0, N)]
+        ax_dec = (ax_tire_max_dec * np.sqrt(1-(ay/ay_max)**2)+ax_drag).tolist()
         # saving GGV map
-        GGV[i][:][1] = [ax_acc, ax_dec[2:]]
-        GGV[i][:][2] = [ay, np.flipud(ay[2:])]
-        GGV[i][:][3] = v[i] * np.ones((1, 2*N-1))
+        GGV[i][0][:] = ax_acc + ax_dec[1:]
+        GGV[i][1][:] = [ay, np.flipud(ay[2:])]
+        GGV[i][2][:] = v[i] * np.ones((1, 2*N-1))
     # HUD
     print('GGV map generated successfully.')
 
