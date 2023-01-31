@@ -276,7 +276,8 @@ def fill_in(self):
         ax_dec = (ax_tire_max_dec * np.sqrt(1-(ay/ay_max)**2)+ax_drag).tolist()
         # saving GGV map
         GGV[i][0][:] = ax_acc + ax_dec[1:]
-        GGV[i][1][:] = [ay, np.flipud(ay[2:])]
+        reverse = ay[::-1]
+        GGV[i][1][:] = ay + reverse[1:]
         GGV[i][2][:] = (v[i] * np.ones((1, 2*N-1))).tolist()
     # HUD
     print('GGV map generated successfully.')
@@ -293,9 +294,12 @@ def fill_in(self):
     y = []
     z = []
     for i in range(0, len(v)):
-        x.append(GGV[i][1][0])
+        x.append(GGV[i][1])
         y.append(GGV[i][0])
         z.append(GGV[i][2][0])
+    x = np.array(x)
+    y = np.array(y)
+    z = np.array(z)
     ax.plot_surface(x, y, z)   
     plt.title('GGV Map')
     plt.show()
