@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import datetime
 import math
+import matplotlib.pyplot as plt
 from tabulate import tabulate
 import numpy as np
 from scipy import interpolate
@@ -276,7 +277,7 @@ def fill_in(self):
         # saving GGV map
         GGV[i][0][:] = ax_acc + ax_dec[1:]
         GGV[i][1][:] = [ay, np.flipud(ay[2:])]
-        GGV[i][2][:] = v[i] * np.ones((1, 2*N-1))
+        GGV[i][2][:] = (v[i] * np.ones((1, 2*N-1))).tolist()
     # HUD
     print('GGV map generated successfully.')
 
@@ -286,6 +287,19 @@ def fill_in(self):
     #save(vehname+'.mat')
 
     ## Plot
+    fig = plt.figure()
+    ax = plt.axes(projection = '3d')
+    x = []
+    y = []
+    z = []
+    for i in range(0, len(v)):
+        x.append(GGV[i][1][0])
+        y.append(GGV[i][0])
+        z.append(GGV[i][2][0])
+    ax.plot_surface(x, y, z)   
+    plt.title('GGV Map')
+    plt.show()
+
 
     # figure
 
