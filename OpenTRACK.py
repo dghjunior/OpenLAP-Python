@@ -134,7 +134,6 @@ class OpenTRACK:
         fill_in(self)
 
 def fill_in(self):
-
     self.info = read_info(self, self.filename, 'Info')
     self.table_shape = read_shape_data(self, self.filename, 'Shape')
     self.table_el = read_data(self, self.filename, 'Elevation')
@@ -218,7 +217,7 @@ def fill_in(self):
         if self.mirror == 'On':
             self.type = -1*self.type
         # removing segments with zero length
-        indices = np.where(self.l == -1)
+        indices = np.where(self.l == 0)
         self.R = np.delete(self.R, indices)
         self.l = np.delete(self.l, indices)
         self.type = np.delete(self.type, indices)
@@ -476,6 +475,15 @@ def read_info(self, workbookFile, sheetName=1, startRow=1, endRow=7):
     # Input handling
     # If no sheet is specified, read first sheet
     data = pd.read_excel(workbookFile, 'Info', header=None)
+    info = {
+        'Name': data.at[0, 1],
+        'Country': data.at[1, 1],
+        'City': data.at[2, 1],
+        'Type': data.at[3, 1],
+        'Config': data.at[4, 1],
+        'Direction': data.at[5, 1],
+        'Mirror': data.at[6, 1]
+    }
     # Convert to output type
     self.name = data.at[0, 1]
     self.country = data.at[1, 1]
@@ -484,6 +492,7 @@ def read_info(self, workbookFile, sheetName=1, startRow=1, endRow=7):
     self.config = data.at[4, 1]
     self.direction = data.at[5, 1]
     self.mirror = data.at[6, 1]
+    return info
         
 def read_shape_data(self, workbookFile, sheetName=1, startRow=2, endRow=10000):
     # Input handling
@@ -528,3 +537,5 @@ def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_s
 
     # Close the text file
     fileID.close()
+
+tr = OpenTRACK('Spa-Francorchamps.xlsx')
