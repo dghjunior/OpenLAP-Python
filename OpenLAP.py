@@ -795,4 +795,5 @@ for i in range(1, max(tr.sector)):
 ## Plotting results
 
 # figure window
+# TODO: implement graphing
 ## IMPLEMENT GRAPHING LATER. MISSING LINES 118-240

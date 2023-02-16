@@ -448,24 +448,22 @@ def fill_in(self):
     self.XX = np.round(self.X/self.mapw*self.linew) # scales x values
     self.YY = -1* self.YY - min(self.YY * -1) # flipping y and shifting to positive space
     self.XX = self.XX - min(self.XX) # shifting x to positive space
-    self.p = np.unique([self.XX, self.YY], 'rows') # getting unique points
+    self.p = np.unique([self.XX, self.YY], axis=1) # getting unique points
     self.XX = (self.p[:][0]+1).astype(int) # saving x
     self.YY = (self.p[:][1]+1).astype(int) # saving y
     self.maph = max(self.YY) # getting new map height [lines]
     self.mapw = max(self.XX) # getting new map width [columns]
-    self.maph = 26
-    self.map = [[' ' for x  in range(self.maph)] for y in range(self.mapw)] # preallocating map
+    self.map = [[' ' for x  in range(self.mapw)] for y in range(self.maph)] # preallocating map
     # looping through characters
-    for i in range(1, self.maph):
-        for j in range(1, int(self.mapw)):
+    for i in range(0, self.maph+1):
+        for j in range(0, self.mapw):
             # create array of all rows of [self.XX, self.YY] that match [j, i]
             self.check = np.array([self.XX, self.YY]).T == [j, i]
-            self.check = self.check[:][0] * self.check[:][1] # combining truth table
+            self.check = self.check[:,0] * self.check[:,1] # combining truth table
             if max(self.check):
                 self.map[i-1][j-1] = 'o' # turning pixel on
     print('Map: ')
-    self.mapstr = str(self.map).replace('[', '').replace(']', '').replace(',', '').replace("'", '') # converting to string
-    print(self.mapstr)
+    print(*(''.join(row) for row in self.map), sep='\n')
 
 ## Functions
 ## Line 665 to end
