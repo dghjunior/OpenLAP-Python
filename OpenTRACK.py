@@ -7,6 +7,7 @@ from scipy.spatial.transform import Rotation
 from scipy import signal
 import pandas as pd
 from scipy import interpolate
+import matplotlib.pyplot as plt
 
 # vehicle class declaration
 class OpenTRACK:
@@ -337,8 +338,8 @@ def fill_in(self):
     ## Map generation
 
     # coordinate vector preallocation
-    self.X = np.zeros((self.n, 1))
-    self.Y = np.zeros((self.n, 1))
+    self.X = np.zeros((self.n)).tolist()
+    self.Y = np.zeros((self.n)).tolist()
     # segment angles
     self.r = [arr.tolist() for arr in self.r.T.flatten()]
     self.angle_seg = np.rad2deg(np.multiply(self.dx,self.r)).tolist()
@@ -357,21 +358,22 @@ def fill_in(self):
     # map generation
     for i in range(1, self.n):
         # previous point
-        p = [self.X[i-1], self.Y[i-1], 0]
+        p = np.matrix([[self.X[i-1]], [self.Y[i-1]], [0.0]])
         # next point
-        rotz = Rotation.from_euler('z', self.angle_head[i-1], degrees=True).as_matrix().astype(int)
-        xyz = (np.dot(rotz, [int(self.dx[i-1]), int(0), int(0)]) + p).tolist()
+        rotz = Rotation.from_euler('z', self.angle_head[i-1], degrees=True).as_matrix().astype(np.float64)
+        temp = np.matrix([[self.dx[i-1]], [0.0], [0.0]])
+        xyz = np.add(np.matmul(rotz, temp), p)
         # saving point coordinates of next point
-        self.X[i] = xyz[0].tolist()
-        self.Y[i] = xyz[1].tolist()
+        self.X[i] = np.around(xyz.item((0, 0)), 6)
+        self.Y[i] = xyz.item((1, 0))
     ## Apexes
 
     # finding Apexes
     apex = signal.find_peaks(np.abs(self.r))[0] + 1
     # correcting corner type
     self.r_apex = [self.r[i-1] for i in apex]
-    self.X = self.X.flatten()
-    self.Y = self.Y.flatten()
+    self.X = np.array(self.X)
+    self.Y = np.array(self.Y)
     self.Z = np.array(self.Z)
 
     # HUD
@@ -418,12 +420,12 @@ def fill_in(self):
         self.Z = self.Z + self.DZ
         self.bank = self.bank + self.db
         # recalculating inclination
-        self.incl = -1*np.arctan(np.diff(self.Z)/np.diff(self.x))
-        self.incl = [self.incl, self.incl[-2]+self.incl[0]/2]
+        self.incl = -1*np.rad2deg(np.arctan(np.diff(self.Z)/np.diff(self.x)))
+        self.incl = np.append(self.incl, self.incl[-2]+self.incl[0]/2)
         # HUD
         print('Fine mesh map closed')
     # smooth track inclination
-    self.incl = smooth(self.incl, 5)
+    self.incl = savgol_filter(self.incl, int(self.n*0.11), 1)
     # HUD
     print('Fine mesh map created')
 

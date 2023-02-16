@@ -508,7 +508,10 @@ if strcmp(info.config,'Closed') % closed track
     disp('Fine mesh map closed.')
 end
 % smoothing track inclination
-incl = smooth(incl) ;
+incl2 = smoothdata(incl) ;
+hold on
+plot(incl, 'b')
+plot(incl2, 'g')
 % HUD
 disp('Fine mesh map created.')
 
