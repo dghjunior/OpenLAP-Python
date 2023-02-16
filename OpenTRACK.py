@@ -257,11 +257,13 @@ def fill_in(self):
         self.X = np.cumsum(self.l) # end position of each segment
         self.XC = np.cumsum(self.l)-self.l/2 # center position of each segment
         j = 0 # index
-        self.x = np.zeros((len(self.X)+sum(self.R==np.inf), 1)) # preallocation
-        self.r = np.zeros((len(self.X)+sum(self.R==np.inf), 1)) # preallocation
+        self.x = np.zeros((len(self.X)+sum(self.R==np.inf), 1)).tolist() # preallocation
+        self.r = np.zeros((len(self.X)+sum(self.R==np.inf), 1)).tolist() # preallocation
         for i in range(0, len(self.X)):
             if self.R[i] == np.inf: # end of straight point injection
                 self.x[j] = self.X[i]-self.l[i]
+                self.r[j] = 0.0
+                self.r[j+1] = 0.0
                 self.x[j+1] = self.X[i]
                 j = j+2
             else: # circular segment center
