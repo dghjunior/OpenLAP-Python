@@ -8,6 +8,7 @@ from scipy import signal
 import pandas as pd
 from scipy import interpolate
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import Gridspec
 
 # vehicle class declaration
 class OpenTRACK:
@@ -432,6 +433,56 @@ def fill_in(self):
     ## Plotting Results
     ## TODO
     # Add plot stuff from lines 515-622
+    
+    # finish line arrow
+    # settings
+    factor_scale = 25
+    half_angle = 40
+    # scaling
+    scale = max([max(self.X)-min(self.X), max(self.Y)-min(self.Y)])/factor_scale
+    # nondimentional vector from point 2 to point 1
+    arrow_n = [self.X[0]-self.X[1], self.Y[0]-self.Y[1], self.Z[0]-self.Z[1]]/np.linalg.norm([self.X[0]-self.X[1], self.Y[0]-self.Y[1], self.Z[0]-self.Z[1]])
+    # first arrow point
+    rotz = Rotation.from_euler('z', half_angle, degrees=True).as_matrix().astype(np.float64)
+    arrow_1 = scale*rotz*arrow_n+[self.X[0], self.Y[0], self.Z[0]]
+    # mid arrow point
+    arrow_c = [self.X[0], self.Y[0], self.Z[0]]
+    # second arrow point
+    rotz = Rotation.from_euler('z', -half_angle, degrees=True).as_matrix().astype(np.float64)
+    arrow_2 = scale*rotz*arrow_n+[self.X[0], self.Y[0], self.Z[0]]
+    # arrow vector components
+    arrow_x = [arrow_1[0], arrow_c[0], arrow_2[0]]
+    arrow_y = [arrow_1[1], arrow_c[1], arrow_2[1]]
+    arrow_z = [arrow_1[2], arrow_c[2], arrow_2[2]]
+    # final arrow matrix
+    arrow = [arrow_x, arrow_y, arrow_z]
+
+    #figure
+    px = 1/plt.rcParams['figure.dpi']  # pixel in inches
+    H = 900-90
+    W = 1200
+    f = plt.figure()
+    f.set_size_inches(W*px, H*px, forward=True)
+    gs = GridSpec(nrows=5, ncols=2)
+    plot_title = ['OpenTRACK', 'Track Name: ' + self.name, 'Configuration: ' + self.config, 'Mirror: ' + self.mirror, 'Date & Time: ' + str(datetime.datetime.now())]
+    f.suptitle(plot_title, fontsize=16)
+
+    # 3d map
+    ax0 = f.add_subplot(gs[0, 2])
+    ax0.set_title('3D Map')
+    ax0.grid(True)
+    ax0.set_xlabel('x [m]')
+    ax0.set_ylabel('y [m]')
+
+    # curvature
+    ax1 = f.add_subplot(gs[1, 0])
+    ax1.set_title('Curvature')
+    ax1.grid(True)
+    ax1.set_xlabel('position [m]')
+    ax1.set_ylabel('curvature [m^-^1]')
+    ax1.plot(self.x, self.r)
+    ax1.set_xlim([self.x[0], self.x[-1]])
+
 
     ## Saving circuit
 
