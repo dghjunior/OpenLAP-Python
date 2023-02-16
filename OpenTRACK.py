@@ -319,8 +319,8 @@ def fill_in(self):
     for i in range(0, len(self.x)):
         self.bank.append(f(self.x[i]).tolist())
     # inclination
-    self.incl = -1*np.arctan(np.diff(self.Z)/np.diff(self.x))
-    self.incl = [self.incl, self.incl[-1]]
+    self.incl = -1*np.rad2deg(np.arctan(np.diff(self.Z)/np.diff(self.x)))
+    self.incl = np.append(self.incl, self.incl[-1])
     # grip factor
     f = interpolate.interp1d(self.xg, self.gf, kind='linear', fill_value='extrapolate')
     self.factor_grip = []
@@ -341,18 +341,18 @@ def fill_in(self):
     self.Y = np.zeros((self.n, 1))
     # segment angles
     self.r = [arr.tolist() for arr in self.r.T.flatten()]
-    self.angle_seg = np.rad2deg(np.multiply(self.r,self.dx)).tolist()
+    self.angle_seg = np.rad2deg(np.multiply(self.dx,self.r)).tolist()
     # heading angles
-    self.angle_head = np.cumsum(self.angle_seg)
+    self.angle_head = np.cumsum(self.angle_seg).tolist()
     if self.config == 'Closed': # tangency correction for closed track
         self.dh = [
             np.mod(self.angle_head[-1], np.sign(self.angle_head[-1])*360),
             self.angle_head[-1]-np.sign(self.angle_head[-1])*360
         ]
-        self.idx = int(min(np.abs(self.dh)))
+        self.idx = self.dh.index(-1*(min(np.abs(self.dh))))
         self.dh = self.dh[self.idx-1]
         self.angle_head = self.angle_head-self.x/self.L*self.dh
-        self.angle_seg = [self.angle_head[0], np.diff(self.angle_head)]
+        self.angle_seg = np.insert(np.diff(self.angle_head), 0, self.angle_seg[0])
     self.angle_head = self.angle_head-self.angle_head[0]
     # map generation
     for i in range(1, self.n):
@@ -362,8 +362,8 @@ def fill_in(self):
         rotz = Rotation.from_euler('z', self.angle_head[i-1], degrees=True).as_matrix().astype(int)
         xyz = (np.dot(rotz, [int(self.dx[i-1]), int(0), int(0)]) + p).tolist()
         # saving point coordinates of next point
-        self.X[i] = xyz[0]
-        self.Y[i] = xyz[1]
+        self.X[i] = xyz[0].tolist()
+        self.Y[i] = xyz[1].tolist()
     ## Apexes
 
     # finding Apexes
