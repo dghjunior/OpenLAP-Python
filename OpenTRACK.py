@@ -257,7 +257,7 @@ def fill_in(self):
         self.X = np.cumsum(self.l) # end position of each segment
         self.XC = np.cumsum(self.l)-self.l/2 # center position of each segment
         j = 0 # index
-        self.x = np.zeros((len(self.X)+sum(self.R==np.inf), 1)).tolist() # preallocation
+        self.x = np.zeros((len(self.X)+sum(self.R==np.inf), 1)) # preallocation
         self.r = np.zeros((len(self.X)+sum(self.R==np.inf), 1)).tolist() # preallocation
         for i in range(0, len(self.X)):
             if self.R[i] == np.inf: # end of straight point injection
@@ -271,23 +271,27 @@ def fill_in(self):
                 self.r[j] = self.type[i]/self.R[i]
                 j = j+1
         # getting data from tables and ignoring points with x>L
-        self.el = self.table_el['Elevation [m]'].values
-        self.el = self.el[self.el < self.L]
-        self.bk = self.table_bk['Banking [deg]'].values
-        self.bk = self.bk[self.bk < self.L]
-        self.gf = self.table_gf['Grip Factor [-]'].values
-        self.gf = self.gf[self.gf < self.L]
-        self.sc = self.table_sc['Sector'].values
-        self.sc = self.sc[self.sc < self.L]
-        self.sc[-1] = self.sc[-2]
+        self.el = self.table_el[['Point [m]', 'Elevation [m]']].values
+        self.el = self.el[~(self.el[:, 0] > self.L),:]
+        self.bk = self.table_bk[['Point [m]', 'Banking [deg]']].values
+        self.bk = self.bk[~(self.bk[:, 0] > self.L),:]
+        self.gf = self.table_gf[['Start Point [m]', 'Grip Factor [-]']].values
+        self.gf = self.gf[~(self.gf[:, 0] > self.L),:]
+        self.sc = self.table_sc[['Start Point [m]', 'Sector']].values
+        self.sc = self.sc[~(self.sc[:, 0] > self.L),:].tolist()
+        self.sc.append([self.L, self.sc[-1][1]])
         # saving coarse position vectors
         self.xx = self.x
         self.xx = np.sort(self.xx.T.flatten()).tolist()
-        self.xe = self.table_el['Point [m]'].values.tolist()
-        self.xb = self.table_bk['Point [m]'].values.tolist()
-        self.xg = self.table_gf['Start Point [m]'].values.tolist()
-        self.xs = self.table_sc['Start Point [m]'].values.tolist()
+        self.xe = self.el[:, 0].tolist()
+        self.xb = self.bk[:, 0].tolist()
+        self.xg = self.gf[:, 0].tolist()
+        self.xs = np.array(self.sc)[:, 0].tolist()
         # saving coarse topology
+        self.el = self.el[:, 1].tolist()
+        self.bk = self.bk[:, 1].tolist()
+        self.gf = self.gf[:, 1].tolist()
+        self.sc = np.array(self.sc)[:, 1].tolist()
     # HUD
     print('Pro-processing completed')
 
