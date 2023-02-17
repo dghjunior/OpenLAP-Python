@@ -132,7 +132,7 @@ def fill_in(self):
     # gear
     gear = np.zeros((len(self.vehicle_speed))).tolist()
     # engine tractive force
-    fx_engine = np.zeros(len(self.vehicle_speed)).tolist()
+    self.fx_engine = np.zeros(len(self.vehicle_speed)).tolist()
     # engine tractive force per gear
     fx = np.zeros((len(self.vehicle_speed), self.nog)).tolist()
     # optimizing gear selection and calculating tractive force
@@ -145,12 +145,12 @@ def fill_in(self):
             f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
             fx[i][j] = f(self.vehicle_speed[i]).tolist()
         # getting maximum tractive force and gear
-        fx_engine[i] = max(fx[i])
-        gear[i] = fx[i].index(fx_engine[i]) + 1
+        self.fx_engine[i] = max(fx[i])
+        gear[i] = fx[i].index(self.fx_engine[i]) + 1
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
     self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0).tolist()
     gear.insert(0, gear[0])
-    fx_engine.insert(0, fx_engine[0])
+    self.fx_engine.insert(0, self.fx_engine[0])
     # final vectors
     # engine speed
     ratios = [self.ratio_gearbox[g-1] for g in gear]
@@ -158,7 +158,7 @@ def fill_in(self):
     tire_speed = [vs / self.tire_radius for vs in self.vehicle_speed]
     engine_speed = [ratio_mult[i] * tire_speed[i] * 60 / 2 / np.pi for i in range(0, len(gear))]
     # wheel torque
-    wheel_torque = [e * self.tire_radius for e in fx_engine]
+    wheel_torque = [e * self.tire_radius for e in self.fx_engine]
     # engine torque
     engine_torque = [wheel_torque[i] / self.ratio_final / ratios[i] /self.ratio_primary/self.n_primary/self.n_gearbox/self.n_final for i in range(0, len(gear))]
     # engine power
@@ -267,7 +267,7 @@ def fill_in(self):
         ax_tire_max_dec = -1/self.M * (mux+dmx*(Nx-(Wz-Aero_Df)/4))*(Wz-Aero_Df)
         # getting power limit from engine
         x = self.vehicle_speed
-        y = self.factor_power * fx_engine
+        y = self.factor_power * self.fx_engine
         f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
         fy[i] = f(v[i]).tolist()
         ax_power_limit = 1/self.M * fy[i]
@@ -340,8 +340,8 @@ def fill_in(self):
     ax4 = f.add_subplot(gs[2, 0])
     ax4.set_title('Traction Model')
     color = 'black'
-    ax4.plot(self.vehicle_speed,self.factor_power*fx_engine, linewidth = 4, color = color)
-    ax4.plot(self.vehicle_speed, min([self.factor_power*fx_engine,fx_tire]), linewidth = 2, color = 'tab:red')
+    ax4.plot(self.vehicle_speed,self.factor_power*self.fx_engine, linewidth = 4, color = color)
+    ax4.plot(self.vehicle_speed, min([self.factor_power*self.fx_engine,fx_tire]), linewidth = 2, color = 'tab:red')
     aero = [a * -1 for a in fx_aero]
     ax4.plot(self.vehicle_speed, aero)
     roll = [r * -1 for r in fx_roll]

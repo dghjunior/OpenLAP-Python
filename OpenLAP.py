@@ -100,6 +100,8 @@ def vehicle_model_lat(veh, tr, p):
         else:
             print('Discriminant <0 at point index: ', p)
         # checking for engine speed limit
+        if 'v' not in locals():
+            v = 0
         c = min(v, veh.v_max)
         ## adjusting speed for drag force compensation
         adjust_speed = True
@@ -122,7 +124,8 @@ def vehicle_model_lat(veh, tr, p):
                 # max long acc available from tires
                 ax_tire_max_acc = 1/M*(mux+dmx*(Nx-Wd))*Wd*driven_wheels
                 # getting power limit from engine
-                ax_power_limit = 1/M*interpolate.interp1d(veh.vehicle_speed, veh.factor_power*veh.fx_engine,v)
+                f = interpolate.interp1d(veh.vehicle_speed, veh.factor_power*veh.fx_engine, kind='linear', fill_value='extrapolate')
+                ax_power_limit = 1/M*f(v)
                 # available combined lat acc at ax_net==0 => ax_tire==-ax_drag
                 ay = ay_max*np.sqrt(1-(ax_drag/ax_tire_max_acc)**2) # friction ellipse
                 # available combined long acc at ay_needed
@@ -147,6 +150,7 @@ def vehicle_model_lat(veh, tr, p):
                 v = np.sqrt((ay-g*np.rad2deg(np.sin(bank)))/r)-0.001 # the (-0.001 factor is there for convergence speed)
             else: # enough grip
                 adjust_speed = False
+    return v, tps, bps
 
 def other_points(i, i_max):
     i_rest = list(range(1, i_max))
