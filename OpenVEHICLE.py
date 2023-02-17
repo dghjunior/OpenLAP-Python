@@ -8,8 +8,8 @@ from matplotlib.gridspec import GridSpec
 from matplotlib import cm
 from tabulate import tabulate
 import numpy as np
-import tkinter
 from scipy import interpolate
+import pickle
 
 # vehicle class declaration
 class OpenVEHICLE:
@@ -290,7 +290,8 @@ def fill_in(self):
     ## Saving vehicle
 
     # saving
-    #save(vehname+'.mat')
+    with open(vehname + '.pkl', 'wb') as outp:
+        pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
 
     ## Plot
 
@@ -378,9 +379,17 @@ def fill_in(self):
     ax5.set_zlabel('Speed [m/s]')
     ax5.view_init(5, 15)
     ax5.locator_params(axis='x', nbins=5)
-    f.canvas.manager.window.wm_geometry("+%d+%d" % (0, 0))
+    # f.canvas.manager.window.wm_geometry("+%d+%d" % (0, 0))
     plt.tight_layout()
-    plt.show()
+
+    #saving figure
+    plt.savefig(vehname+'.png')
+    # HUD
+    print('Plots created and saved')
+
+    plt.show(block=False)
+    plt.pause(5)
+    plt.close()
 
 
 # veh = OpenVEHICLE('Formula 1.xlsx')
