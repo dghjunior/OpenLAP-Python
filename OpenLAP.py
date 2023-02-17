@@ -61,7 +61,7 @@ def vehicle_model_lat(veh, tr, p):
     # Mass
     M = veh.M
     # normal load on all wheels
-    Wz = M*g*np.rad2deg(np.cos(bank))*np.rad2deg(np.cos(incl))
+    Wz = M*g*np.cos(bank)*np.rad2deg(np.cos(incl))
     # induced weight from banking and inclination
     Wy = -1*M*g*(np.rad2deg(np.sin(bank)))
     Wx = M*g*(np.rad2deg(np.sin(incl)))
