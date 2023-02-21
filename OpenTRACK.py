@@ -424,11 +424,13 @@ def fill_in(self):
         self.bank = self.bank + self.db
         # recalculating inclination
         self.incl = -1*np.rad2deg(np.arctan(np.diff(self.Z)/np.diff(self.x)))
-        self.incl = np.append(self.incl, self.incl[-2]+self.incl[0]/2)
+        self.incl = np.append(self.incl, (self.incl[-2]+self.incl[0])/2)
         # HUD
         print('Fine mesh map closed')
     # smooth track inclination
-    self.incl = savgol_filter(self.incl, int(self.n*0.11), 1)
+    window_size = int(self.n/13.5)
+    self.incl = savgol_filter(self.incl, window_size, 1, mode='mirror')
+
     # HUD
     print('Fine mesh map created')
     
@@ -527,7 +529,8 @@ def fill_in(self):
     plt.tight_layout()
     plt.savefig(trackname + '.jpg')
     plt.show(block=False)
-    plt.pause(5)
+    # plt.pause(5)
+    plt.pause(0.1)
     plt.close()
     # HUD
     print('Plots created and saved.')
@@ -645,4 +648,4 @@ def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_s
     # Close the text file
     fileID.close()
 
-# tr = OpenTRACK('Spa-Francorchamps.xlsx')
+tr = OpenTRACK('Spa-Francorchamps.xlsx')

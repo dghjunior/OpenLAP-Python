@@ -61,10 +61,10 @@ def vehicle_model_lat(veh, tr, p):
     # Mass
     M = veh.M
     # normal load on all wheels
-    Wz = M*g*np.cos(bank)*np.rad2deg(np.cos(incl))
+    Wz = M*g*np.cos(bank)*np.cos(np.deg2rad(incl))
     # induced weight from banking and inclination
-    Wy = -1*M*g*(np.rad2deg(np.sin(bank)))
-    Wx = M*g*(np.rad2deg(np.sin(incl)))
+    Wy = -1*M*g*(np.sin(bank))
+    Wx = M*g*(np.sin(np.deg2rad(incl)))
 
     ## speed solution
     if r == 0: # straight (limited by engine speed limit or drag)
@@ -102,7 +102,7 @@ def vehicle_model_lat(veh, tr, p):
         # checking for engine speed limit
         if 'v' not in locals():
             v = 0
-        c = min(v, veh.v_max)
+        v = min(v, veh.v_max)
         ## adjusting speed for drag force compensation
         adjust_speed = True
         while adjust_speed:
@@ -362,7 +362,7 @@ def simulate(veh, tr, simname, logid):
     print(v_max)
     bps_v_max = np.zeros(tr.n)
     tps_v_max = np.zeros(tr.n)
-    for i in range(1, tr.n):
+    for i in range(0, tr.n):
         v_max[i], tps_v_max[i], bps_v_max[i] = vehicle_model_lat(veh, tr, i)
 
     # HUD
@@ -383,9 +383,10 @@ def simulate(veh, tr, simname, logid):
     # checking if no apexes found and adding one if needed
     if len(apex) == 0:
         print(len(v_max))
-        v_apex, apex = min(v_max)
+        v_apex = min(v_max)
+        apex = v_max.tolist().index(v_apex)
     # reordering apexes for solver time optimization
-    apex_table = np.sort([v_apex, apex], 1)
+    apex_table = np.sort([v_apex, apex], 0)
     v_apex = apex_table[:, 0]
     apex = apex_table[:, 1]
     # getting driver inputs at apexes

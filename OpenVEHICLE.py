@@ -388,7 +388,8 @@ def fill_in(self):
     print('Plots created and saved')
 
     plt.show(block=False)
-    plt.pause(5)
+    # plt.pause(5)
+    plt.pause(0.1)
     plt.close()
 
 
