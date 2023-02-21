@@ -311,7 +311,10 @@ def fill_in(self):
     # number of mesh points
     self.n = len(self.x)
     # fine curvature vector
-    self.r = interpolate.pchip_interpolate(self.xx, self.r, self.x)
+    f = interpolate.PchipInterpolator(self.xx, self.r, extrapolate=True)
+    self.r = f(self.x).tolist()
+    # self.r = interpolate.pchip_interpolate(self.xx, self.r, self.x)
+
     # elevation
     z = interpolate.interp1d(self.xe, self.el, kind='linear', fill_value='extrapolate')
     self.Z = []
@@ -344,7 +347,6 @@ def fill_in(self):
     self.X = np.zeros((self.n)).tolist()
     self.Y = np.zeros((self.n)).tolist()
     # segment angles
-    self.r = [arr.tolist() for arr in self.r.T.flatten()]
     self.angle_seg = np.rad2deg(np.multiply(self.dx,self.r)).tolist()
     # heading angles
     self.angle_head = np.cumsum(self.angle_seg).tolist()
