@@ -387,11 +387,11 @@ def simulate(veh, tr, simname, logid):
         apex = v_max.tolist().index(v_apex)
     # reordering apexes for solver time optimization
     apex_table = np.sort([v_apex, apex], 0)
-    v_apex = apex_table[:, 0]
-    apex = apex_table[:, 1]
+    v_apex = apex_table[:][0]
+    apex = apex_table[:][1]
     # getting driver inputs at apexes
-    tps_apex = tps_v_max[apex]
-    bps_apex = bps_v_max[apex]
+    tps_apex = [tps_v_max[a] for a in apex]
+    bps_apex = [bps_v_max[a] for a in apex]
 
     # HUD
     print('Found all apexes on track.')
