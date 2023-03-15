@@ -38,10 +38,12 @@
 import os
 import time
 import numpy as np
+import numpy.matlib
 from scipy import interpolate
 from scipy import signal
 from OpenVEHICLE import OpenVEHICLE
 from OpenTRACK import OpenTRACK
+import pickle
 
 ## Functions
 
@@ -186,6 +188,7 @@ def next_point(j, j_max, mode, tr_config):
         elif tr_config == 'Open':
             j =  j-1
             j_next = j-1
+    return j_next, j
 
 def vehicle_model_comb(veh, tr, v, v_max_next, j, mode):
     
@@ -309,17 +312,20 @@ def vehicle_model_comb(veh, tr, v, v_max_next, j, mode):
         ay = 0
         tps = -1
         bps = -1
-    return
+    return v_next, ax, ay, tps, bps, overshoot
 
 def progress_bar(flag, prg_size, logid, prg_pos):
     # current flag state
-    p = np.sum(flag, 'all')/len(flag[0])/len(flag[1]) # progress percentage
+    try:
+        p = np.sum(flag)/(flag.shape[0])/(flag.shape[1]) # progress percentage
+    except:
+        p = np.sum(flag)/(flag.shape[0])
     n = np.floor(p*prg_size) # new number of lines
     e = prg_size-n # number of spaces
     # updating progress bar in command window
-    np.matlib.repmat('\b', 1, prg_size+1+8) # backspace to start of bar
-    np.matlib.repmat('|', 1, n) # writing lines
-    np.matlib.repmat(' ', 1, e) # writing spaces
+    numpy.matlib.repmat('\b', 1, prg_size+1+8) # backspace to start of bar
+    numpy.matlib.repmat('|', 1, int(n)) # writing lines
+    np.matlib.repmat(' ', 1, int(e)) # writing spaces
     print(']') # closing bar
     print(p*100) # writing percentage
     print('%') # writing percentage symbol
@@ -370,9 +376,12 @@ def simulate(veh, tr, simname, logid):
     logid.write('Maximum speed calculated at all points.')
 
     ## finding apexes
-
-    v_apex, apex = signal.find_peaks(-v_max) # findpeaks works for maxima, so need to flip values
+    v_apex, apex = signal.find_peaks(-v_max, prominence=1) # findpeaks works for maxima, so need to flip values
     v_apex = -v_apex # flipping to get positive values
+    apx = np.zeros(len(v_apex))
+    for i in range(0, len(v_apex)):
+        apx[i] = (apex['left_bases'][i] + apex['right_bases'][i]) / 2
+    apex = apx
     # setting up standing start for open track configuration
     if tr.config == 'Open':
         if not apex[0] == 1: # if index 1 is not already an apex
@@ -390,8 +399,8 @@ def simulate(veh, tr, simname, logid):
     v_apex = apex_table[:][0]
     apex = apex_table[:][1]
     # getting driver inputs at apexes
-    tps_apex = [tps_v_max[a] for a in apex]
-    bps_apex = [bps_v_max[a] for a in apex]
+    tps_apex = [tps_v_max[int(a)] for a in apex]
+    bps_apex = [bps_v_max[int(a)] for a in apex]
 
     # HUD
     print('Found all apexes on track.')
@@ -400,8 +409,8 @@ def simulate(veh, tr, simname, logid):
     ## simulation
 
     # memory preallocation
-    N = np.zeros(len(apex), 1) # number of apexes
-    flag = np.zeros(tr.n, 2) # flag for checking that speed has been correctly evaluated
+    N = len(apex) # number of apexes
+    flag = np.zeros((tr.n, 2)) # flag for checking that speed has been correctly evaluated
     # 1st matrix dimension equal to number of points in track mesh
     # 2nd matric dimension equal to number of apexes
     # 3rd matric dimension equal to 2 if needed (1 copy for acceleration and 1 copy for deceleration)
@@ -434,35 +443,35 @@ def simulate(veh, tr, simname, logid):
                 if len(i_rest) == 0:
                     i_rest = i
                 # getting apex index
-                j = apex[i]
+                j = int(apex[i])
                 # saving speed and latacc and driver inputs from presolved apex
                 v[j, i, k] = v_apex[i]
                 ay[j, i, k] = v_apex[i]**2*tr.r[j]
-                tps[j, :, 1] = tps_apex[i]*np.ones(1, N)
-                bps[j, :, 1] = bps_apex[i]*np.ones(1, N)
-                tps[j, :, 2] = tps_apex[i]*np.ones(1, N)
-                bps[j, :, 2] = bps_apex[i]*np.ones(1, N)
+                tps[j, :, 0] = tps_apex[i]*np.ones((1, N))
+                bps[j, :, 0] = bps_apex[i]*np.ones((1, N))
+                tps[j, :, 1] = tps_apex[i]*np.ones((1, N))
+                bps[j, :, 1] = bps_apex[i]*np.ones((1, N))
                 # setting apex flag
                 flag[j, k] = True
                 # getting next point index
                 j_next = next_point(j, tr.n, mode, tr.config)
-                if not (tr.into.config == 'Open' and mode == 1 and i == 1): # if not in standing start
+                if not (tr.info['Config'] == 'Open' and mode == 1 and i == 1): # if not in standing start
                     # assume same speed right after apex
                     v[j_next, i, k] = v[j, i, k]
                     # moving to the next point index
                     j_next, j = next_point(j, tr.n, mode, tr.config)
                 while True:
                     # writing to log file
-                    logid.write(i, j, k, tr.x[j], v[j, i, k], v_max[j])
+                    logid.write('%7d\t%7d\t%7d\t%7.1f\t%7.2f\t%7.2f\n' % (i, j, k, tr.x[j], v[j, i, k], v_max[j]))
                     # calculating speed, accelerations and driver inputs from vehicle model
                     v[j_next, i, k], ax[j, i, k], ay[j, i, k], tps[j, i, k], bps[j, i, k], overshoot = vehicle_model_comb(veh, tr, v[j, i, k], v_max[j_next], j, mode)
                     # checking for limit
                     if overshoot:
-                        return
+                        break
                     # checking if point is already solved in other apex iteration
                     if flag[j, k] or flag[j, k_rest]:
                         if max(v[j_next, i, k]>=v[j_next, i_rest, k]) or max(v[j_next, i, k]>v[j_next, i_rest, k_rest]):
-                            return
+                            break
                     # updating flag and progress bar
                     flag = flag_update(flag, j, k, prg_size, logid, prg_pos)
                     # moving to next point index
@@ -470,24 +479,25 @@ def simulate(veh, tr, simname, logid):
                     # checking if lap is completed
                     if tr.config == 'Closed':
                         if j == apex[i]: # made it to the same apex
-                            return
+                            break
                     elif tr.config == 'Open':
                         if j == tr.n: # mad it to the end
                             flag = flag_update(flag, j, k, prg_size, logid, prg_pos)
                         if j==1: # made it to the start
-                            return
+                            break
     # HUD
-    progress_bar(max(flag, [], 2), prg_size, logid, prg_pos)
+    progress_bar(np.amax(flag, 1), prg_size, logid, prg_pos)
     logid.write('\n')
     print('Velocity profile calculated.')
     print('Solver time is: ' + str(time.time() - start_time) + ' seconds.')
     print('Post-processing initialized.')
     logid.write('________________________________________________\n')
-    if sum(flag)<len(flag[1])/len(flag[2]):
+    if np.sum(flag)<(flag.shape[0])/(flag.shape[1]):
         logid.write('Velocity profile calculation error.\n')
         logid.write('Points not calculated.\n')
         p = list(range(1, tr.n))
-        logid.write(p[min(flag, [], 2)])
+        #TODO fix this later
+        # logid.write(p[np.amin(flag, 1).astype(int)])
     else:
         logid.write('Velocity profile calculated successfully.\n')
     logid.write('Solver time is: ')
@@ -506,7 +516,8 @@ def simulate(veh, tr, simname, logid):
     # solution selection
     for i in range(1, tr.n):
         IDX = len(v[i, :, 1])
-        V[i], idx = min(v[i, :, 1], v[i, :, 2]) # order of k in v[i,:,k] inside min() must be the same order to not miss correct values
+        V[i] = min(v[i, :, 0].all(), v[i, :, 1].all()) # order of k in v[i,:,k] inside min() must be the same order to not miss correct values
+        idx = np.where(v[i, :, 0] == V[i])
         if idx<=IDX: # solved in acceleration
             AX[i] = ax[i, idx, 1]
             AY[i] = ay[i, idx, 1]
@@ -725,6 +736,7 @@ def simulate(veh, tr, simname, logid):
     print('Simulation completed.')
     logid.write('Simulation results saved.')
     logid.write('Simulation completed.')
+    return sim
 
 ## Clearing memory
 
@@ -744,11 +756,15 @@ vehiclefile = 'Formula 1.xlsx'
 
 ## Loading circuit
 
-tr = OpenTRACK(trackfile)
+# tr = OpenTRACK(trackfile)
+with open('OpenTRACK Tracks/OpenTRACK_Spa-Francorchamps_Closed_Forward.pkl', 'rb') as f:
+    tr = pickle.load(f)
 
 ## Loading car
 
-veh = OpenVEHICLE(vehiclefile)
+# veh = OpenVEHICLE(vehiclefile)
+with open('OpenVEHICLE Vehicles/OpenVEHICLE_Formula 1_Open Wheel.pkl', 'rb') as f:
+    veh = pickle.load(f)
 
 ## Export frequency
 
