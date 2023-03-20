@@ -131,7 +131,7 @@ def vehicle_model_lat(veh, tr, p):
                 # available combined lat acc at ax_net==0 => ax_tire==-ax_drag
                 ay = ay_max*np.sqrt(1-(ax_drag/ax_tire_max_acc)**2) # friction ellipse
                 # available combined long acc at ay_needed
-                ax_acc = ax_tire_max_acc*np.sqrt(1-(ay_needed/ay_max)**2) # friction ellipse
+                ax_acc = ax_tire_max_acc*np.sqrt(1-((ay_needed/ay_max)**2)) # friction ellipse
                 # getting tps value
                 scale = min(-ax_drag, ax_acc)/ax_power_limit
                 tps = max(0, min(1, scale)) # making sure its positive
@@ -376,12 +376,10 @@ def simulate(veh, tr, simname, logid):
     logid.write('Maximum speed calculated at all points.')
 
     ## finding apexes
-    v_apex, apex = signal.find_peaks(-v_max) # findpeaks works for maxima, so need to flip values
-    v_apex = -v_apex # flipping to get positive values
-    apx = np.zeros(len(v_apex))
-    for i in range(0, len(v_apex)):
-        apx[i] = (apex['left_bases'][i] + apex['right_bases'][i]) / 2
-    apex = apx
+    apex = signal.argrelmax(-v_max)
+    v_apex = [v_max[i] for i in apex]
+    #v_apex = -v_apex # flipping to get positive values
+
     # setting up standing start for open track configuration
     if tr.config == 'Open':
         if not apex[0] == 1: # if index 1 is not already an apex
@@ -396,8 +394,8 @@ def simulate(veh, tr, simname, logid):
         apex = v_max.tolist().index(v_apex)
     # reordering apexes for solver time optimization
     apex_table = np.sort([v_apex, apex], 0)
-    v_apex = apex_table[:][0]
-    apex = apex_table[:][1]
+    v_apex = apex_table[0].tolist()[0]
+    apex = apex_table[1].tolist()[0]
     # getting driver inputs at apexes
     tps_apex = [tps_v_max[int(a)] for a in apex]
     bps_apex = [bps_v_max[int(a)] for a in apex]
