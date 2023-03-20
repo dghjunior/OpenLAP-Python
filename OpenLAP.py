@@ -88,15 +88,15 @@ def vehicle_model_lat(veh, tr, p):
         # 2nd degree polynomial coefficients (a*x^2 + b*x + c = 0)
         a = -1*np.sign(r)*dmy/4*(D**2)
         b = np.sign(r)*(muy*D+(dmy/4)*(Ny*4)*D-2*(dmy/4)*Wz*D)-M*r
-        c = np.sign(r)*(muy*Wz+(dmy/4)*(Ny*4)*Wz-(dmy/4)*(Wy**2))+Wy
+        c = np.sign(r)*(muy*Wz+(dmy/4)*(Ny*4)*Wz-(dmy/4)*(Wz**2))+Wy
         # calculating 2nd degree polynomial roots
         if a==0:
             v = np.sqrt(-c/b)
         elif ((b**2)-4*a*c) >= 0:
             if (-b+np.sqrt((b**2)-4*a*c))/(2/a) >= 0:
-                v = np.sqrt((-b+np.sqrt((b**2)-4*a*c))/(2/a)) #TODO isn't it 2*a?
+                v = np.sqrt((-b+np.sqrt((b**2)-4*a*c))/2/a)
             elif (-b-np.sqrt((b**2)-4*a*c))/(2/a) >= 0:
-                v = np.sqrt((-b-np.sqrt((b**2)-4*a*c))/(2/a))
+                v = np.sqrt((-b-np.sqrt((b**2)-4*a*c))/2/a)
             else:
                 print('No real roots at point index: ', p)
         else:
@@ -133,7 +133,7 @@ def vehicle_model_lat(veh, tr, p):
                 # available combined long acc at ay_needed
                 ax_acc = ax_tire_max_acc*np.sqrt(1-(ay_needed/ay_max)**2) # friction ellipse
                 # getting tps value
-                scale = min(-ax_drag/ax_power_limit, -ax_acc/ax_power_limit)
+                scale = min(-ax_drag, ax_acc)/ax_power_limit
                 tps = max(0, min(1, scale)) # making sure its positive
                 bps = 0 # setting brake pressure to 0
             else: # need to brake to compensate for drag
@@ -376,7 +376,7 @@ def simulate(veh, tr, simname, logid):
     logid.write('Maximum speed calculated at all points.')
 
     ## finding apexes
-    v_apex, apex = signal.find_peaks(-v_max, prominence=1) # findpeaks works for maxima, so need to flip values
+    v_apex, apex = signal.find_peaks(-v_max) # findpeaks works for maxima, so need to flip values
     v_apex = -v_apex # flipping to get positive values
     apx = np.zeros(len(v_apex))
     for i in range(0, len(v_apex)):
