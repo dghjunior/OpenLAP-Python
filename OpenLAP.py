@@ -41,6 +41,7 @@ import numpy as np
 import numpy.matlib
 from scipy import interpolate
 from scipy import signal
+from tqdm import tqdm
 from OpenVEHICLE import OpenVEHICLE
 from OpenTRACK import OpenTRACK
 import pickle
@@ -131,7 +132,7 @@ def vehicle_model_lat(veh, tr, p):
                 # available combined lat acc at ax_net==0 => ax_tire==-ax_drag
                 ay = ay_max*np.sqrt(1-(ax_drag/ax_tire_max_acc)**2) # friction ellipse
                 # available combined long acc at ay_needed
-                ax_acc = ax_tire_max_acc*np.sqrt(1-((ay_needed/ay_max)**2)) # friction ellipse
+                ax_acc = ax_tire_max_acc*np.sqrt(1-(ay_needed/ay_max)**2) # friction ellipse
                 # getting tps value
                 scale = min(-ax_drag, ax_acc)/ax_power_limit
                 tps = max(0, min(1, scale)) # making sure its positive
@@ -155,7 +156,7 @@ def vehicle_model_lat(veh, tr, p):
     return v, tps, bps
 
 def other_points(i, i_max):
-    i_rest = list(range(1, i_max))
+    i_rest = list(range(0, i_max))
     i_rest.remove(i)
     return i_rest
 
@@ -272,7 +273,8 @@ def vehicle_model_comb(veh, tr, v, v_max_next, j, mode):
         # max combinbed long acc available from driven tires
         ax_tire = ax_tire_max*ellipse_multi
         # getting power limit from engine
-        ax_power_limit = 1/M*interpolate.interp1d(veh.vehicle_speed, veh.factor_power*veh.fx_engine, v, 'linear', 0)
+        f = interpolate.interp1d(veh.vehicle_speed, veh.factor_power*veh.fx_engine, kind='linear', fill_value='extrapolate')
+        ax_power_limit = 1/M*f(v).tolist()
         # getting tps value
         scale = min(ax_tire/ax_power_limit, ax_needed/ax_power_limit)
         tps = max(0, min(1, scale)) # making sure its positive
@@ -314,7 +316,7 @@ def vehicle_model_comb(veh, tr, v, v_max_next, j, mode):
         bps = -1
     return v_next, ax, ay, tps, bps, overshoot
 
-def progress_bar(flag, prg_size, logid, prg_pos):
+def progress_bar(flag, prg_size, logid, prg_pos, pbar):
     # current flag state
     try:
         p = np.sum(flag)/(flag.shape[0])/(flag.shape[1]) # progress percentage
@@ -326,24 +328,23 @@ def progress_bar(flag, prg_size, logid, prg_pos):
     numpy.matlib.repmat('\b', 1, prg_size+1+8) # backspace to start of bar
     numpy.matlib.repmat('|', 1, int(n)) # writing lines
     np.matlib.repmat(' ', 1, int(e)) # writing spaces
-    print(']') # closing bar
-    print(p*100) # writing percentage
-    print('%') # writing percentage symbol
     # updating progress bar in log file
     logid.seek(prg_pos) # going to start of bar
+    pbar.update(p)
     ## CAN ADD THIS HERE BUT I DONT FEEL LIKE IT. MISSING LINES 982-988 of OpenLAP
 
-def flag_update(flag, j, k, prg_size, logid, prg_pos):
+def flag_update(flag, j, k, prg_size, logid, prg_pos, pbar):
     # current flag state
-    p = np.sum(flag, 'all')/len(flag[0])/len(flag[1])
+    p = np.sum(flag)/len(flag[0])/len(flag[1])
     n_old = np.floor(p*prg_size) # old number of lines
     # new flag state
     flag[j, k] = True
-    p = np.sum(flag, 'all')/len(flag[0])/len(flag[2])
+    p = np.sum(flag)/len(flag[0])/len(flag[2])
     n = np.floor(p*prg_size) # new number of lines
     # checking if state has changed enough to update progress bar
     if n>n_old:
-        progress_bar(flag, prg_size, logid, prg_pos)
+        progress_bar(flag, prg_size, logid, prg_pos, pbar)
+    return flag
 
 def export_report(veh, tr, sim, freq, logid):
     # frequency
@@ -410,8 +411,8 @@ def simulate(veh, tr, simname, logid):
     N = len(apex) # number of apexes
     flag = np.zeros((tr.n, 2)) # flag for checking that speed has been correctly evaluated
     # 1st matrix dimension equal to number of points in track mesh
-    # 2nd matric dimension equal to number of apexes
-    # 3rd matric dimension equal to 2 if needed (1 copy for acceleration and 1 copy for deceleration)
+    # 2nd matrix dimension equal to number of apexes
+    # 3rd matrix dimension equal to 2 if needed (1 copy for acceleration and 1 copy for deceleration)
     v = np.inf*np.ones((tr.n, N, 2))
     ax = np.zeros((tr.n, N, 2))
     ay = np.zeros((tr.n, N, 2))
@@ -420,6 +421,7 @@ def simulate(veh, tr, simname, logid):
 
     # HUD
     print('Starting acceleration and deceleration.')
+    pbar = tqdm(total=100)
     logid.write('Starting acceleration and deceleration.')
     prg_size = 30
     prg_pos = logid.tell()
@@ -427,15 +429,15 @@ def simulate(veh, tr, simname, logid):
     logid.write('|_Apex__|_Point_|_Mode__|___x___|___v___|_vmax_|\n')
 
     # running simulation
-    for i in range(1, N): # apex number
-        for k in range(1, 2): # mode number
-            if k == 1: # acceleration
+    for i in range(0, N): # apex number
+        for k in range(0, 1): # mode number
+            if k == 0: # acceleration
                 mode = 1
-                k_rest = 2
-            elif k == 2: # deceleration
-                mode = -1
                 k_rest = 1
-            if not (tr.config == 'Open' and mode==-1 and i == 1): # does not run in decel mode at standing start in open track
+            elif k == 1: # deceleration
+                mode = -1
+                k_rest = 0
+            if not (tr.config == 'Open' and mode==-1 and i == 0): # does not run in decel mode at standing start in open track
                 # getting other apex for later checking
                 i_rest = other_points(i, N)
                 if len(i_rest) == 0:
@@ -471,20 +473,21 @@ def simulate(veh, tr, simname, logid):
                         if max(v[j_next, i, k]>=v[j_next, i_rest, k]) or max(v[j_next, i, k]>v[j_next, i_rest, k_rest]):
                             break
                     # updating flag and progress bar
-                    flag = flag_update(flag, j, k, prg_size, logid, prg_pos)
+                    flag = flag_update(flag, j, k, prg_size, logid, prg_pos, pbar)
                     # moving to next point index
-                    j_next, j = next_point(j, tr.n, mode, tr.config)
+                    j_next, j = next_point(j, tr.n-1, mode, tr.config)
                     # checking if lap is completed
                     if tr.config == 'Closed':
                         if j == apex[i]: # made it to the same apex
                             break
                     elif tr.config == 'Open':
                         if j == tr.n: # mad it to the end
-                            flag = flag_update(flag, j, k, prg_size, logid, prg_pos)
+                            flag = flag_update(flag, j, k, prg_size, logid, prg_pos, pbar)
                         if j==1: # made it to the start
                             break
     # HUD
-    progress_bar(np.amax(flag, 1), prg_size, logid, prg_pos)
+    progress_bar(np.amax(flag, 1), prg_size, logid, prg_pos, pbar)
+    pbar.close()
     logid.write('\n')
     print('Velocity profile calculated.')
     print('Solver time is: ' + str(time.time() - start_time) + ' seconds.')
@@ -512,20 +515,20 @@ def simulate(veh, tr, simname, logid):
     TPS = np.zeros((tr.n, 1))
     BPS = np.zeros((tr.n, 1))
     # solution selection
-    for i in range(1, tr.n):
-        IDX = len(v[i, :, 1])
+    for i in range(0, tr.n):
+        IDX = len(v[i, :, 0])
         V[i] = min(v[i, :, 0].all(), v[i, :, 1].all()) # order of k in v[i,:,k] inside min() must be the same order to not miss correct values
         idx = np.where(v[i, :, 0] == V[i])
         if idx<=IDX: # solved in acceleration
-            AX[i] = ax[i, idx, 1]
-            AY[i] = ay[i, idx, 1]
-            TPS[i] = tps[i, idx, 1]
-            BPS[i] = bps[i, idx, 1]
+            AX[i] = ax[i, idx, 0]
+            AY[i] = ay[i, idx, 0]
+            TPS[i] = tps[i, idx, 0]
+            BPS[i] = bps[i, idx, 0]
         else: # solved in deceleration
-            AX[i] = ax[i, idx-IDX, 2]
-            AY[i] = ay[i, idx-IDX, 2]
-            TPS[i] = tps[i, idx-IDX, 2]
-            BPS[i] = bps[i, idx-IDX, 2]
+            AX[i] = ax[i, idx-IDX, 1]
+            AY[i] = ay[i, idx-IDX, 1]
+            TPS[i] = tps[i, idx-IDX, 1]
+            BPS[i] = bps[i, idx-IDX, 1]
     
     # HUD
     print('Correct solution selected from modes.')
