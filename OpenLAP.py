@@ -45,11 +45,13 @@ from tqdm import tqdm
 from OpenVEHICLE import OpenVEHICLE
 from OpenTRACK import OpenTRACK
 import pickle
+import warnings
 
 ## Functions
 
 def vehicle_model_lat(veh, tr, p):
 
+    warnings.filterwarnings("ignore")
     ## Initialization
     # getting track data
     g = 9.81
@@ -193,6 +195,7 @@ def next_point(j, j_max, mode, tr_config):
 
 def vehicle_model_comb(veh, tr, v, v_max_next, j, mode):
     
+    warnings.filterwarnings("ignore")
     ## Initialization
 
     # assuming no overshoot
@@ -366,7 +369,6 @@ def simulate(veh, tr, simname, logid):
     ## maximum speed curve (assuming pure lateral condition)
 
     v_max = np.zeros(tr.n)
-    print(v_max)
     bps_v_max = np.zeros(tr.n)
     tps_v_max = np.zeros(tr.n)
     for i in range(0, tr.n):
@@ -421,7 +423,7 @@ def simulate(veh, tr, simname, logid):
 
     # HUD
     print('Starting acceleration and deceleration.')
-    pbar = tqdm(total=100)
+    pbar = tqdm(total=100, leave=False)
     logid.write('Starting acceleration and deceleration.')
     prg_size = 30
     prg_pos = logid.tell()
