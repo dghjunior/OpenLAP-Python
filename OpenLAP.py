@@ -39,6 +39,7 @@ import os
 import time
 import numpy as np
 import numpy.matlib
+import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import signal
 from tqdm import tqdm
@@ -379,7 +380,9 @@ def simulate(veh, tr, simname, logid):
     logid.write('Maximum speed calculated at all points.')
 
     ## finding apexes
-    apex = signal.argrelmax(-v_max)
+    plt.plot(v_max)
+    plt.show()
+    apex = signal.argrelmin(v_max)
     v_apex = [v_max[i] for i in apex]
     #v_apex = -v_apex # flipping to get positive values
 
