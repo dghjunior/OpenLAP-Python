@@ -574,9 +574,10 @@ def simulate(veh, tr, simname, logid):
     yaw_rate = V*tr.r
     delta = np.zeros((tr.n, 1))
     beta = np.zeros((tr.n, 1))
-    for i in range(1, tr.n):
+    for i in range(0, tr.n):
         B = np.array(M*V[i]**2*tr.r[i]+M*g*np.sin(tr.bank[i]))
-        sol = veh.C/B
+        B = np.append(B, 0.0)
+        sol = np.linalg.lstsq(np.array(veh.C).T, B.T)[0].T
         delta[i] = sol[0]+np.arctan(veh.L*tr.r[i])
         beta[i] = sol[1]
     steer = delta*veh.rack
@@ -589,12 +590,22 @@ def simulate(veh, tr, simname, logid):
     logid.write('Vehicle slip angles calculated.\n')
 
     # calculating engine metrics
-    wheel_torque = TPS*interpolate.interp1d(veh.vehicle_speed, veh.wheel_torque, V, 'linear', 'extrap')
+    f = interpolate.interp1d(veh.vehicle_speed, veh.wheel_torque, kind='linear', fill_value='extrapolate')
+    wheel_torque = TPS*f(V)
+    
     Fx_eng = wheel_torque*veh.tire_radius
-    engine_torque = TPS*interpolate.interp1d(veh.vehicle_speed, veh.engine_torque, V, 'linear', 'extrap')
-    engine_power = TPS*interpolate.interp1d(veh.vehicle_speed, veh.engine_power, V, 'linear', 'extrap')
-    engine_speed = interpolate.interp1d(veh.vehicle_speed, veh.engine_speed, V, 'linear', 'extrap')
-    gear = interpolate.interp1d(veh.vehicle_speed, veh.gear, V, 'nearest', 'extrap')
+    f = interpolate.interp1d(veh.vehicle_speed, veh.engine_torque, kind='linear', fill_value='extrapolate')
+    engine_torque = TPS*f(V)
+    
+    f = interpolate.interp1d(veh.vehicle_speed, veh.engine_power, kind='linear', fill_value='extrapolate')
+    engine_power = TPS*f(V)
+    
+    f = interpolate.interp1d(veh.vehicle_speed, veh.engine_speed, kind='linear', fill_value='extrapolate')
+    engine_speed = f(V)
+    
+    f = interpolate.interp1d(veh.vehicle_speed, veh.gear, kind='linear', fill_value='extrapolate')
+    gear = f(V)
+    
     fuel_cons = np.cumsum(wheel_torque/veh.tire_radius*tr.dx/veh.n_primary/veh.n_gearbox/veh.n_final/veh.n_thermal/veh.fuel_LHV)
     fuel_cons_total = fuel_cons[-1]
     # HUD
@@ -605,7 +616,7 @@ def simulate(veh, tr, simname, logid):
     percent_in_corners = np.sum(tr.r != 0)/tr.n*100
     percent_in_accel = np.sum(TPS>0)/tr.n*100
     percent_in_decel = np.sum(BPS>0)/tr.n*100
-    percent_in_coast = np.sum(TPS==0 & BPS==0)/tr.n*100
+    percent_in_coast = np.sum(np.logical_and(not BPS.all(), not TPS.all()))/tr.n*100
     percent_in_full_tps = np.sum(TPS==1)/tr.n*100
     percent_in_gear = np.zeros((veh.nog, 1))
     for i in range(1, veh.nog):
@@ -614,14 +625,17 @@ def simulate(veh, tr, simname, logid):
     energy_spent_mech = energy_spent_fuel*veh.n_thermal
     gear_shifts = np.sum(np.abs(np.diff(gear)))
     i = max(np.abs(AY))
-    ay_max = AY[i]
+    ay_max = AY[int(i)]
     ax_max = max(AX)
     ax_min = min(AX)
-    sector_v_max = np.zeros((max(tr.sector), 1))
-    sector_v_min = np.zeros((min(tr.sector), 1))
-    for i in range(1, max(tr.sector)):
-        sector_v_max[i] = max(V(tr.sector==i))
-        sector_v_min[i] = min(V(tr.sector==i))
+    sector_v_max = np.zeros((int(max(tr.sector)), 1))
+    sector_v_min = np.zeros((int(min(tr.sector)), 1))
+    for i in range(0, int(max(tr.sector))):
+        sector_V = np.array([V[j].tolist()[0] for j in range(len(V)) if tr.sector[j] == i+1.0])
+        plt.plot(V)
+        plt.show()
+        sector_v_max[i] = np.max(sector_V)
+        sector_v_min[i] = np.min(sector_V)
     # HUD
     print('KPIs calculated.')
     print('Post-processing finished.')

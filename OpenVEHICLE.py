@@ -131,7 +131,7 @@ def fill_in(self):
     self.vehicle_speed = np.linspace(self.v_min, self.v_max, math.floor((self.v_max-self.v_min)/dv)).tolist()
     # memory preallocation
     # gear
-    gear = np.zeros((len(self.vehicle_speed))).tolist()
+    self.gear = np.zeros((len(self.vehicle_speed))).tolist()
     # engine tractive force
     self.fx_engine = np.zeros(len(self.vehicle_speed)).tolist()
     # engine tractive force per gear
@@ -147,37 +147,37 @@ def fill_in(self):
             fx[i][j] = f(self.vehicle_speed[i]).tolist()
         # getting maximum tractive force and gear
         self.fx_engine[i] = max(fx[i])
-        gear[i] = fx[i].index(self.fx_engine[i]) + 1
+        self.gear[i] = fx[i].index(self.fx_engine[i]) + 1
     # adding values for 0 speed to vectors for interpolation purposes at low speeds
     self.vehicle_speed = np.insert(self.vehicle_speed, 0, 0).tolist()
-    gear.insert(0, gear[0])
+    self.gear.insert(0, self.gear[0])
     self.fx_engine.insert(0, self.fx_engine[0])
     # final vectors
     # engine speed
-    ratios = [self.ratio_gearbox[g-1] for g in gear]
+    ratios = [self.ratio_gearbox[g-1] for g in self.gear]
     ratio_mult = [self.ratio_final * self.ratio_primary * r for r in ratios]
     tire_speed = [vs / self.tire_radius for vs in self.vehicle_speed]
-    engine_speed = [ratio_mult[i] * tire_speed[i] * 60 / 2 / np.pi for i in range(0, len(gear))]
+    self.engine_speed = [ratio_mult[i] * tire_speed[i] * 60 / 2 / np.pi for i in range(0, len(self.gear))]
     # wheel torque
-    wheel_torque = [e * self.tire_radius for e in self.fx_engine]
+    self.wheel_torque = [e * self.tire_radius for e in self.fx_engine]
     # engine torque
-    engine_torque = [wheel_torque[i] / self.ratio_final / ratios[i] /self.ratio_primary/self.n_primary/self.n_gearbox/self.n_final for i in range(0, len(gear))]
+    self.engine_torque = [self.wheel_torque[i] / self.ratio_final / ratios[i] /self.ratio_primary/self.n_primary/self.n_gearbox/self.n_final for i in range(0, len(self.gear))]
     # engine power
-    engine_power = [t * s * 2 * np.pi / 60 for t in engine_torque for s in engine_speed]
+    self.engine_power = [self.engine_torque[i] * self.engine_speed[i] * 2 * np.pi / 60 for i in range(0, len(self.gear))]
     # HUD
     print('Driveline model generated successfully.')
 
     ## Shifting points and Rev Drops
 
     # finding gear changes
-    gear_change = np.diff(gear).tolist()
+    gear_change = np.diff(self.gear).tolist()
     # getting speed right before and after gear change
     indices = [ind for ind, ele in enumerate(gear_change) if ele == 1]
     for i in indices:
         gear_change[i+1] = 1
     gear_change.append(0)
     # getting engine speed at gear change
-    engine_speed_gear_change = [engine_speed[i] for i,c in enumerate(gear_change) if c == 1]
+    engine_speed_gear_change = [self.engine_speed[i] for i,c in enumerate(gear_change) if c == 1]
     # getting shift points
     shift_points = engine_speed_gear_change[::2]
     # getting arrive points
@@ -327,15 +327,15 @@ def fill_in(self):
     color = 'tab:blue'
     ax2.set_title('Gearing')
     ax2.set_xlabel('Speed [m/s]')
-    ax2.plot(self.vehicle_speed,engine_speed, color = color)
+    ax2.plot(self.vehicle_speed,self.engine_speed, color = color)
     ax2.set_ylabel('Engine Speed [rpm]', color = color)
     ax2.grid(True)
     ax2.set_xlim(self.vehicle_speed[0],self.vehicle_speed[-1])
     color = 'tab:red'
     ax3 = ax2.twinx()
-    ax3.plot(self.vehicle_speed,gear, color = color)
+    ax3.plot(self.vehicle_speed,self.gear, color = color)
     ax3.set_ylabel('Gear [-]', color = color)
-    ax3.set_ylim(gear[0]-1,gear[-1]+1)
+    ax3.set_ylim(self.gear[0]-1,self.gear[-1]+1)
 
     # traction model
     ax4 = f.add_subplot(gs[2, 0])
