@@ -45,8 +45,10 @@ from scipy import signal
 from tqdm import tqdm
 from OpenVEHICLE import OpenVEHICLE
 from OpenTRACK import OpenTRACK
+from OpenSIM import OpenSIM
 import pickle
 import warnings
+import GridSpec
 
 ## Functions
 
@@ -435,7 +437,7 @@ def simulate(veh, tr, simname, logid):
 
     # running simulation
     for i in range(0, N): # apex number
-        for k in range(0, 1): # mode number
+        for k in range(0, 2): # mode number
             if k == 0: # acceleration
                 mode = 1
                 k_rest = 1
@@ -524,7 +526,7 @@ def simulate(veh, tr, simname, logid):
     for i in range(0, tr.n):
         IDX = len(v[i, :, 0])
         V[i] = np.min(v[i]) # order of k in v[i,:,k] inside min() must be the same order to not miss correct values
-        idx = np.where(v[i, :, 0] == V[i])[0][0]
+        idx = np.where(v[i, :] == V[i])[0][0]
         if idx<=IDX: # solved in acceleration
             AX[i] = ax[i, idx, 0]
             AY[i] = ay[i, idx, 0]
@@ -629,11 +631,9 @@ def simulate(veh, tr, simname, logid):
     ax_max = max(AX)
     ax_min = min(AX)
     sector_v_max = np.zeros((int(max(tr.sector)), 1))
-    sector_v_min = np.zeros((int(min(tr.sector)), 1))
+    sector_v_min = np.zeros((int(max(tr.sector)), 1))
     for i in range(0, int(max(tr.sector))):
         sector_V = np.array([V[j].tolist()[0] for j in range(len(V)) if tr.sector[j] == i+1.0])
-        plt.plot(V)
-        plt.show()
         sector_v_max[i] = np.max(sector_V)
         sector_v_min[i] = np.min(sector_V)
     # HUD
@@ -642,118 +642,12 @@ def simulate(veh, tr, simname, logid):
     logid.write('KPIs calculated.\n')
     logid.write('Post-processing finished.\n')
 
-    ## saving results in sim structure
-    sim.sim_name.data = simname 
-    sim.distance.data = tr.x 
-    sim.distance.unit = 'm' 
-    sim.time.data = time 
-    sim.time.unit = 's' 
-    sim.N.data = N 
-    sim.N.unit = [] 
-    sim.apex.data = apex 
-    sim.apex.unit = [] 
-    sim.speed_max.data = v_max 
-    sim.speed_max.unit = 'm/s' 
-    sim.flag.data = flag 
-    sim.flag.unit = [] 
-    sim.v.data = v 
-    sim.v.unit = 'm/s' 
-    sim.Ax.data = ax 
-    sim.Ax.unit = 'm/s/s' 
-    sim.Ay.data = ay 
-    sim.Ay.unit = 'm/s/s' 
-    sim.tps.data = tps 
-    sim.tps.unit = [] 
-    sim.bps.data = bps 
-    sim.bps.unit = [] 
-    sim.elevation.data = tr.Z 
-    sim.elevation.unit = 'm' 
-    sim.speed.data = V 
-    sim.speed.unit = 'm/s' 
-    sim.yaw_rate.data = yaw_rate 
-    sim.yaw_rate.unit = 'rad/s' 
-    sim.long_acc.data = AX 
-    sim.long_acc.unit = 'm/s/s' 
-    sim.lat_acc.data = AY 
-    sim.lat_acc.unit = 'm/s/s' 
-    sim.sum_acc.data = A 
-    sim.sum_acc.unit = 'm/s/s' 
-    sim.throttle.data = TPS 
-    sim.throttle.unit = 'ratio' 
-    sim.brake_pres.data = BPS 
-    sim.brake_pres.unit = 'Pa' 
-    sim.brake_force.data = BPS*veh.phi 
-    sim.brake_force.unit = 'N' 
-    sim.steering.data = steer 
-    sim.steering.unit = 'deg' 
-    sim.delta.data = delta 
-    sim.delta.unit = 'deg' 
-    sim.beta.data = beta 
-    sim.beta.unit = 'deg' 
-    sim.Fz_aero.data = Fz_aero 
-    sim.Fz_aero.unit = 'N' 
-    sim.Fx_aero.data = Fx_aero 
-    sim.Fx_aero.unit = 'N' 
-    sim.Fx_eng.data = Fx_eng 
-    sim.Fx_eng.unit = 'N' 
-    sim.Fx_roll.data = Fx_roll 
-    sim.Fx_roll.unit = 'N' 
-    sim.Fz_mass.data = Fz_mass 
-    sim.Fz_mass.unit = 'N' 
-    sim.Fz_total.data = Fz_total 
-    sim.Fz_total.unit = 'N' 
-    sim.wheel_torque.data = wheel_torque 
-    sim.wheel_torque.unit = 'N.m' 
-    sim.engine_torque.data = engine_torque 
-    sim.engine_torque.unit = 'N.m' 
-    sim.engine_power.data = engine_power 
-    sim.engine_power.unit = 'W' 
-    sim.engine_speed.data = engine_speed 
-    sim.engine_speed.unit = 'rpm' 
-    sim.gear.data = gear 
-    sim.gear.unit = [] 
-    sim.fuel_cons.data = fuel_cons 
-    sim.fuel_cons.unit = 'kg' 
-    sim.fuel_cons_total.data = fuel_cons_total 
-    sim.fuel_cons_total.unit = 'kg' 
-    sim.laptime.data = laptime 
-    sim.laptime.unit = 's' 
-    sim.sector_time.data = sector_time 
-    sim.sector_time.unit = 's' 
-    sim.percent_in_corners.data = percent_in_corners 
-    sim.percent_in_corners.unit = '%' 
-    sim.percent_in_accel.data = percent_in_accel 
-    sim.percent_in_accel.unit = '%' 
-    sim.percent_in_decel.data = percent_in_decel 
-    sim.percent_in_decel.unit = '%' 
-    sim.percent_in_coast.data = percent_in_coast 
-    sim.percent_in_coast.unit = '%' 
-    sim.percent_in_full_tps.data = percent_in_full_tps 
-    sim.percent_in_full_tps.unit = '%' 
-    sim.percent_in_gear.data = percent_in_gear 
-    sim.percent_in_gear.unit = '%' 
-    sim.v_min.data = min(V) 
-    sim.v_min.unit = 'm/s' 
-    sim.v_max.data = max(V) 
-    sim.v_max.unit = 'm/s' 
-    sim.v_ave.data = np.mean(V) 
-    sim.v_ave.unit = 'm/s' 
-    sim.energy_spent_fuel.data = energy_spent_fuel 
-    sim.energy_spent_fuel.unit = 'J' 
-    sim.energy_spent_mech.data = energy_spent_mech 
-    sim.energy_spent_mech.unit = 'J' 
-    sim.gear_shifts.data = gear_shifts 
-    sim.gear_shifts.unit = [] 
-    sim.lat_acc_max.data = ay_max 
-    sim.lat_acc_max.unit = 'm/s/s' 
-    sim.long_acc_max.data = ax_max 
-    sim.long_acc_max.unit = 'm/s/s' 
-    sim.long_acc_min.data = ax_min 
-    sim.long_acc_min.unit = 'm/s/s' 
-    sim.sector_v_max.data = sector_v_max 
-    sim.sector_v_max.unit = 'm/s' 
-    sim.sector_v_min.data = sector_v_min 
-    sim.sector_v_min.unit = 'm/s' 
+    sim = OpenSIM(simname, tr, time, N, apex, v_max, v, ax, ay, tps, bps, V, yaw_rate, AX, AY, A, \
+                    TPS, BPS, veh, steer, delta, beta, Fz_aero, Fx_aero, Fx_eng, Fx_roll, Fz_mass, Fz_total, \
+                    wheel_torque, engine_torque, engine_power, engine_speed, gear, fuel_cons, fuel_cons_total, \
+                        laptime, sector_time, percent_in_corners, percent_in_accel, percent_in_decel, percent_in_coast, \
+                            percent_in_full_tps, percent_in_gear, energy_spent_fuel, energy_spent_mech, gear_shifts, \
+                                ay_max, ax_max, ax_min, sector_v_min, sector_v_max, flag)
 
     # HUD
     print('Simulation results saved.')
@@ -831,14 +725,36 @@ sim = simulate(veh, tr, simname, logid)
 
 ## Displaying laptime
 
-print('Laptime: ' + str(sim.laptime.data) + ' s')
-logid.write('Laptime: ' + str(sim.laptime.data) + ' s')
-for i in range(1, max(tr.sector)):
-    print('Sector ' + str(i) + ': ' + str(sim.sector_time.data[i-1]) + ' s')
-    logid.write('Sector ' + str(i) + ': ' + str(sim.sector_time.data[i-1]) + ' s')
+print('Laptime: ' + str(sim.laptime_data) + ' s')
+logid.write('Laptime: ' + str(sim.laptime_data) + ' s')
+for i in range(0, int(max(tr.sector))):
+    print('Sector ' + str(i+1) + ': ' + str(sim.sector_time_data[i]) + ' s')
+    logid.write('Sector ' + str(i+1) + ': ' + str(sim.sector_time_data[i]) + ' s')
 
 ## Plotting results
 
-# figure window
-# TODO: implement graphing
-## IMPLEMENT GRAPHING LATER. MISSING LINES 118-240
+    # figure
+    px = 1/plt.rcParams['figure.dpi']  # pixel in inches
+    H = 900-90
+    W = 1200
+    f = plt.figure()
+    f.set_size_inches(W*px, H*px, forward=True)
+    gs = GridSpec(nrows=6, ncols=2)
+    f.suptitle(simname, fontsize=16)
+    ax0 = f.add_subplot(gs[0, :])
+
+    # engine curves
+    ax0.set_title('Engine Curve')
+    ax0.set_xlabel('Engine Speed [rpm]')
+    color = 'tab:blue'
+    ax0.plot(self.en_speed_curve,self.factor_power*self.en_torque_curve, color = color)
+    ax0.set_ylabel('Engine Torque [Nm]', color = color)
+    ax0.grid(True)
+    ax0.set_xlim(self.en_speed_curve[0],self.en_speed_curve[-1])
+    y = [self.factor_power*p/745.7 for p in self.en_power_curve]
+    ax0.tick_params(axis ='y', labelcolor = color)
+    ax1 = ax0.twinx()
+    color = 'tab:red'
+    ax1.set_ylabel('Engine Power [Hp]', color = color)
+    ax1.plot(self.en_speed_curve, y, color = color)
+    ax1.tick_params(axis = 'y', labelcolor = color)
