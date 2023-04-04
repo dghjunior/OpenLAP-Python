@@ -168,9 +168,9 @@ def next_point(j, j_max, mode, tr_config):
         if tr_config == 'Closed':
             if j==j_max-1:
                 j = j_max
-                j_next = 1
+                j_next = 0
             elif j==j_max:
-                j = 1
+                j = 0
                 j_next = j+1
             else:
                 j = j+1
@@ -178,12 +178,12 @@ def next_point(j, j_max, mode, tr_config):
         elif tr_config == 'Open':
             j =  j+1
             j_next = j+1
-    if mode == -1: # deceleration
+    elif mode == -1: # deceleration
         if tr_config == 'Closed':
-            if j==2:
-                j = 1
+            if j==1:
+                j = 0
                 j_next = j_max
-            elif j==1:
+            elif j==0:
                 j = j_max
                 j_next = j-1
             else:
@@ -223,10 +223,10 @@ def vehicle_model_comb(veh, tr, v, v_max_next, j, mode):
     # Mass
     M = veh.M
     # normal load on all wheels
-    Wz = M*g*np.cos(bank)*np.cos(incl)
+    Wz = M*g*np.cos(np.deg2rad(bank))*np.cos(np.deg2rad(incl))
     # induced weight from banking and inclination
-    Wy = -1*M*g*np.sin(bank)
-    Wx = M*g*np.sin(incl)
+    Wy = -1*M*g*np.sin(np.deg2rad(bank))
+    Wx = M*g*np.sin(np.deg2rad(incl))
     # aero forces
     Aero_Df = 0.5*veh.rho*veh.factor_Cl*veh.Cl*veh.A*v**2
     Aero_Dr = 0.5*veh.rho*veh.factor_Cd*veh.Cd*veh.A*v**2
@@ -380,8 +380,6 @@ def simulate(veh, tr, simname, logid):
     logid.write('Maximum speed calculated at all points.')
 
     ## finding apexes
-    plt.plot(v_max)
-    plt.show()
     apex = signal.argrelmin(v_max)
     v_apex = [v_max[i] for i in apex]
     #v_apex = -v_apex # flipping to get positive values
@@ -399,9 +397,9 @@ def simulate(veh, tr, simname, logid):
         v_apex = min(v_max)
         apex = v_max.tolist().index(v_apex)
     # reordering apexes for solver time optimization
-    apex_table = np.sort([v_apex, apex], 0)
-    v_apex = apex_table[0].tolist()[0]
-    apex = apex_table[1].tolist()[0]
+    apex_table = sorted(np.column_stack((v_apex[0], apex[0])).tolist())
+    v_apex = [apex_table[i][0] for i in range(0, len(apex_table))]
+    apex = [apex_table[i][1] for i in range(0, len(apex_table))]
     # getting driver inputs at apexes
     tps_apex = [tps_v_max[int(a)] for a in apex]
     bps_apex = [bps_v_max[int(a)] for a in apex]
@@ -433,13 +431,15 @@ def simulate(veh, tr, simname, logid):
     logid.write('________________________________________________\n')
     logid.write('|_Apex__|_Point_|_Mode__|___x___|___v___|_vmax_|\n')
 
+    same_reached = True
+
     # running simulation
     for i in range(0, N): # apex number
         for k in range(0, 1): # mode number
             if k == 0: # acceleration
                 mode = 1
                 k_rest = 1
-            elif k == 1: # deceleration
+            if k == 1: # deceleration
                 mode = -1
                 k_rest = 0
             if not (tr.config == 'Open' and mode==-1 and i == 0): # does not run in decel mode at standing start in open track
@@ -459,24 +459,25 @@ def simulate(veh, tr, simname, logid):
                 # setting apex flag
                 flag[j, k] = True
                 # getting next point index
-                j_next = next_point(j, tr.n, mode, tr.config)
-                if not (tr.info['Config'] == 'Open' and mode == 1 and i == 1): # if not in standing start
+                j_next = next_point(j, tr.n-1, mode, tr.config)[1]
+                if not (tr.info['Config'] == 'Open' and mode == 1 and i == 0): # if not in standing start
                     # assume same speed right after apex
                     v[j_next, i, k] = v[j, i, k]
                     # moving to the next point index
-                    j_next, j = next_point(j, tr.n, mode, tr.config)
-                while True:
+                    j_next, j = next_point(j, tr.n-1, mode, tr.config)
+                same_reached = True
+                while same_reached:
                     # writing to log file
                     logid.write('%7d\t%7d\t%7d\t%7.1f\t%7.2f\t%7.2f\n' % (i, j, k, tr.x[j], v[j, i, k], v_max[j]))
                     # calculating speed, accelerations and driver inputs from vehicle model
                     v[j_next, i, k], ax[j, i, k], ay[j, i, k], tps[j, i, k], bps[j, i, k], overshoot = vehicle_model_comb(veh, tr, v[j, i, k], v_max[j_next], j, mode)
                     # checking for limit
                     if overshoot:
-                        break
+                        same_reached = False
                     # checking if point is already solved in other apex iteration
                     if flag[j, k] or flag[j, k_rest]:
                         if max(v[j_next, i, k]>=v[j_next, i_rest, k]) or max(v[j_next, i, k]>v[j_next, i_rest, k_rest]):
-                            break
+                            same_reached = False
                     # updating flag and progress bar
                     flag = flag_update(flag, j, k, prg_size, logid, prg_pos, pbar)
                     # moving to next point index
@@ -484,12 +485,12 @@ def simulate(veh, tr, simname, logid):
                     # checking if lap is completed
                     if tr.config == 'Closed':
                         if j == apex[i]: # made it to the same apex
-                            break
+                            same_reached = False
                     elif tr.config == 'Open':
                         if j == tr.n: # mad it to the end
                             flag = flag_update(flag, j, k, prg_size, logid, prg_pos, pbar)
                         if j==1: # made it to the start
-                            break
+                            same_reached = False
     # HUD
     progress_bar(np.amax(flag, 1), prg_size, logid, prg_pos, pbar)
     pbar.close()
@@ -522,8 +523,8 @@ def simulate(veh, tr, simname, logid):
     # solution selection
     for i in range(0, tr.n):
         IDX = len(v[i, :, 0])
-        V[i] = min(v[i, :, 0].all(), v[i, :, 1].all()) # order of k in v[i,:,k] inside min() must be the same order to not miss correct values
-        idx = np.where(v[i, :, 0] == V[i])
+        V[i] = np.min(v[i]) # order of k in v[i,:,k] inside min() must be the same order to not miss correct values
+        idx = np.where(v[i, :, 0] == V[i])[0][0]
         if idx<=IDX: # solved in acceleration
             AX[i] = ax[i, idx, 0]
             AY[i] = ay[i, idx, 0]
@@ -543,10 +544,13 @@ def simulate(veh, tr, simname, logid):
     if tr.config == 'Open':
         timer = np.cumsum([tr.dx[2]/V[2], tr.dx[2:]/V[2:]])
     else:
-        timer = np.cumsum(tr.dx/V)
-    sector_time = np.zeros(max(tr.sector), 1)
-    for i in range(1, max(tr.sector)):
-        sector_time[i] = max(timer(tr.sector==i))-min(timer(tr.sector==i))
+        timer = np.cumsum(np.divide(np.array(tr.dx), np.rot90(V)[0]))
+    sector_time = np.zeros((int(max(tr.sector)), 1))
+    indexes = np.where(np.roll(tr.sector, 1) != tr.sector)[0][1:]
+    indexes = np.append(indexes, tr.n-1)
+    sector_times = [timer[j] for j in indexes]
+    for i in range(0, int(max(tr.sector))):
+        sector_time[i] = timer[indexes[i]] - np.sum(sector_time[:i])
     laptime = timer[-1]
 
     # HUD
@@ -568,10 +572,10 @@ def simulate(veh, tr, simname, logid):
 
     # calculating yaw motion, vehicle slip angle and steering input
     yaw_rate = V*tr.r
-    delta = np.zeros(tr.n, 1)
-    beta = np.zeros(tr.n, 1)
+    delta = np.zeros((tr.n, 1))
+    beta = np.zeros((tr.n, 1))
     for i in range(1, tr.n):
-        B = np.array(M*V[i]**2*tr.r[i]+M*g*np.sin(tr.bank[i]), 0)
+        B = np.array(M*V[i]**2*tr.r[i]+M*g*np.sin(tr.bank[i]))
         sol = veh.C/B
         delta[i] = sol[0]+np.arctan(veh.L*tr.r[i])
         beta[i] = sol[1]
@@ -603,7 +607,7 @@ def simulate(veh, tr, simname, logid):
     percent_in_decel = np.sum(BPS>0)/tr.n*100
     percent_in_coast = np.sum(TPS==0 & BPS==0)/tr.n*100
     percent_in_full_tps = np.sum(TPS==1)/tr.n*100
-    percent_in_gear = np.zeros(veh.nog, 1)
+    percent_in_gear = np.zeros((veh.nog, 1))
     for i in range(1, veh.nog):
         percent_in_gear[i] = np.sum(gear==i)/tr.n*100
     energy_spent_fuel = fuel_cons*veh.fuel_LHV
@@ -613,8 +617,8 @@ def simulate(veh, tr, simname, logid):
     ay_max = AY[i]
     ax_max = max(AX)
     ax_min = min(AX)
-    sector_v_max = np.zeros(max(tr.sector), 1)
-    sector_v_min = np.zeros(min(tr.sector), 1)
+    sector_v_max = np.zeros((max(tr.sector), 1))
+    sector_v_min = np.zeros((min(tr.sector), 1))
     for i in range(1, max(tr.sector)):
         sector_v_max[i] = max(V(tr.sector==i))
         sector_v_min[i] = min(V(tr.sector==i))

@@ -45,6 +45,7 @@ class OpenVEHICLE:
         self.mu_y = 2.0 # lateral friction coefficient
         self.mu_y_M = 250 # kg
         self.sens_y = 0.0001 # lateral friction sensitivity
+        self.C = [1600, 3600, 2640, -60]
         self.CF = 800 # N/deg
         self.CR = 1000 # N/deg
         self.factor_power = 1 
@@ -100,7 +101,7 @@ def fill_in(self):
 
     a = round((1-self.df)*self.L, 4) # distance of front axle from center of mass [mm]
     b = -1*self.df*self.L # distance of rear axle from center of mass [mm]
-    C = [[2*self.CF, 2*(self.CF+self.CR)],[int(2*self.CF*a), int(2*(self.CF*a+self.CR*b))]] # steering model matrix
+    self.C = [[2*self.CF, 2*(self.CF+self.CR)],[int(2*self.CF*a), int(2*(self.CF*a+self.CR*b))]] # steering model matrix
     # HUD
     print('Steering model generated successfully.')
 
