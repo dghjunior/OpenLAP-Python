@@ -457,7 +457,7 @@ def fill_in(self):
     arrow_y = [arrow_1[1], arrow_c[1], arrow_2[1]]
     arrow_z = [arrow_1[2], arrow_c[2], arrow_2[2]]
     # final arrow matrix
-    arrow = [arrow_x, arrow_y, arrow_z]
+    self.arrow = [arrow_x, arrow_y, arrow_z]
 
     #figure
     px = 1/plt.rcParams['figure.dpi']  # pixel in inches
@@ -650,4 +650,4 @@ def read_logged_data(self, filename, header_startRow=1, header_endRow=12, data_s
     # Close the text file
     fileID.close()
 
-#tr = OpenTRACK('Spa-Francorchamps.xlsx')
+# tr = OpenTRACK('Spa-Francorchamps.xlsx')

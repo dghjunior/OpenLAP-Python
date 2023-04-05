@@ -48,7 +48,9 @@ from OpenTRACK import OpenTRACK
 from OpenSIM import OpenSIM
 import pickle
 import warnings
-import GridSpec
+from matplotlib.gridspec import GridSpec
+from matplotlib import cm
+
 
 ## Functions
 
@@ -733,28 +735,143 @@ for i in range(0, int(max(tr.sector))):
 
 ## Plotting results
 
-    # figure
-    px = 1/plt.rcParams['figure.dpi']  # pixel in inches
-    H = 900-90
-    W = 1200
-    f = plt.figure()
-    f.set_size_inches(W*px, H*px, forward=True)
-    gs = GridSpec(nrows=6, ncols=2)
-    f.suptitle(simname, fontsize=16)
-    ax0 = f.add_subplot(gs[0, :])
+# figure window
+px = 1/plt.rcParams['figure.dpi']
+H = 900-90
+W = 1200
+f = plt.figure()
+f.set_size_inches(W*px, H*px, forward=True)
+f.suptitle(simname, fontsize=16)
 
-    # engine curves
-    ax0.set_title('Engine Curve')
-    ax0.set_xlabel('Engine Speed [rpm]')
-    color = 'tab:blue'
-    ax0.plot(self.en_speed_curve,self.factor_power*self.en_torque_curve, color = color)
-    ax0.set_ylabel('Engine Torque [Nm]', color = color)
-    ax0.grid(True)
-    ax0.set_xlim(self.en_speed_curve[0],self.en_speed_curve[-1])
-    y = [self.factor_power*p/745.7 for p in self.en_power_curve]
-    ax0.tick_params(axis ='y', labelcolor = color)
-    ax1 = ax0.twinx()
-    color = 'tab:red'
-    ax1.set_ylabel('Engine Power [Hp]', color = color)
-    ax1.plot(self.en_speed_curve, y, color = color)
-    ax1.tick_params(axis = 'y', labelcolor = color)
+# setting rows & columns
+gs = GridSpec(nrows=9, ncols=2)
+# x axis limits
+xlimit = [tr.x[0], tr.x[-1]]
+# setting legend location
+loc = 'right'
+
+# speed
+ax0 = f.add_subplot(gs[0, :])
+color = 'tab:blue'
+ax0.plot(tr.x, sim.speed_data*3.6, color = color)
+ax0.legend({'Speed'}, loc=loc, facecolor='white', framealpha=1)
+ax0.set_xlabel('Distance [m]', fontsize=8)
+ax0.set_xlim(xlimit)
+ax0.set_ylabel('Speed [km/h]', fontsize=8)
+ax0.tick_params(axis='both', labelsize=8)
+ax0.grid(True)
+
+# elevation and curvature
+ax1 = f.add_subplot(gs[1, :])
+lns1 = ax1.plot(tr.x, tr.Z, color = color, label='Elevation')
+ax1.set_xlabel('Distance [m]', fontsize=8)
+ax1.set_xlim(xlimit)
+ax1.set_yticks([380, 400, 420, 440, 460])
+ax1.tick_params(axis='y', colors=color, labelsize=8)
+ax1.set_ylabel('Elevation [m]', color=color, fontsize=8)
+ax1.grid(True)
+ax2 = ax1.twinx()
+color = 'tab:red'
+lns2 = ax2.plot(tr.x, tr.r, color = color, label='Curvature')
+ax2.set_ylabel('Curvature [m^-1]', color=color, fontsize=8)
+ax2.set_yticks([-0.1, -0.05, 0])
+ax2.tick_params(axis='y', colors=color, labelsize=8)
+ax1.tick_params(axis='x', labelsize=8)
+lns = lns1+lns2
+labs = [l.get_label() for l in lns]
+ax2.legend(lns, labs, loc=loc, facecolor='white', framealpha=1)
+
+# accelerations
+ax3 = f.add_subplot(gs[2, :])
+color = 'tab:blue'
+lns1 = ax3.plot(tr.x, sim.long_acc_data, color = color, label='LonAcc')
+ax3.set_xlabel('Distance [m]', fontsize=8)
+ax3.set_xlim(xlimit)
+ax3.set_yticks([-100, 0, 100])
+ax3.set_ylabel('Acceleration [m/s^2]', fontsize=8)
+color = 'tab:red'
+lns2 = ax3.plot(tr.x, sim.lat_acc_data, color = color, label='LatAcc')
+color = 'black'
+lns3 = ax3.plot(tr.x, sim.sum_acc_data, color = color, linestyle='dashed', label='GSum')
+ax3.set_ylabel('Acceleration [m/s^2]', fontsize=8)
+lns = lns1+lns2+lns3
+labs = [l.get_label() for l in lns]
+ax3.legend(lns, labs, loc=loc, facecolor='white', framealpha=1)
+ax3.tick_params(axis='both', labelsize=8)
+ax3.grid(True)
+
+# drive inputs
+ax4 = f.add_subplot(gs[3, :])
+color = 'tab:blue'
+tps = [t*100 for t in sim.throttle_data]
+ax4.plot(tr.x, tps, color = color)
+color = 'tab:red'
+bps = [b/(10**5) for b in sim.brake_pres_data]
+ax4.plot(tr.x, bps, color = color)
+ax4.legend({'tps', 'bps'}, loc=loc, facecolor='white', framealpha=1)
+ax4.set_xlabel('Distance [m]', fontsize=8)
+ax4.set_xlim(xlimit)
+ax4.set_yticks([0, 50, 100])
+ax4.set_ylabel('input [%]', fontsize=8)
+ax4.tick_params(axis='both', labelsize=8)
+ax4.grid(True)
+ax4.set_ylim([-10, 110])
+
+# steering inputs
+ax5 = f.add_subplot(gs[4, :])
+color = 'tab:blue'
+ax5.plot(tr.x, sim.steering_data, color = color)
+color = 'tab:red'
+ax5.plot(tr.x, sim.delta_data, color = color)
+color = 'yellow'
+ax5.plot(tr.x, sim.beta_data, color = color)
+ax5.legend({'Steering wheel', 'Steering delta', 'Vehicle slip angle beta'}, loc=loc, facecolor='white', framealpha=1)
+ax5.set_xlabel('Distance [m]', fontsize=8)
+ax5.set_xlim(xlimit)
+ax5.set_yticks([-100, -50, 0, 50])
+ax5.set_ylabel('angle [deg]', fontsize=8)
+ax5.tick_params(axis='both', labelsize=8)
+ax5.grid(True)
+
+# ggv circle
+ax6 = f.add_subplot(gs[5:, 0], projection='3d')
+ax6.scatter3D(sim.lat_acc_data, sim.long_acc_data, sim.speed_data*3.6, color='red')
+x = []
+y = []
+z = []
+for i in range(0, len(veh.v)):
+    x.append(veh.GGV[i][1])
+    y.append(veh.GGV[i][0])
+    z.append(veh.GGV[i][2][0])
+x = np.array(x)
+y = np.array(y)
+z = np.array(z)
+ax6.plot_surface(x, y, z)
+my_col = cm.viridis(z/np.amax(z))
+ax6.plot_surface(x, y, z, rstride=1, cstride=1, facecolors = my_col,
+    linewidth=0, antialiased=True)
+ax6.set_xlabel('Lat acc [m/s^2]')
+ax6.set_ylabel('Long acc [m/s^2]')
+ax6.set_xticks([-100, -50, 0, 50, 100])
+ax6.set_yticks([-100, -50, 0, 50])
+ax6.w_zaxis.line.set_lw(0.)
+ax6.set_zticks([])
+# ax6.set_zlabel('Speed [m/s]')
+ax6.view_init(azim=-90, elev=90)
+ax6.locator_params(axis='x', nbins=5)
+
+# track map
+ax7 = f.add_subplot(gs[5:, 1])
+ax7.scatter(tr.X, tr.Y, c=sim.speed_data*3.6, marker='.', linewidth=0.05)
+# im = ax7.imshow(sim.speed_data)
+# cbar = plt.colorbar(im, ax=ax7)
+ax7.plot(tr.arrow[0], tr.arrow[1], color='black')
+ax7.legend({'Track Map'})
+ax7.set_xlabel('X [m]')
+ax7.set_ylabel('Y [m]')
+ax7.set_xticks([-1500, -1000, -500, 0])
+ax7.set_yticks([0, 500, 1000])
+ax7.grid(True)
+
+plt.tight_layout()
+plt.show()

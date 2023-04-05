@@ -140,10 +140,10 @@ def fill_in(self):
     for i in range(0, len(self.vehicle_speed)):
         # going through the gears
         for j in range(0, self.nog):
-            x = self.vehicle_speed_gear[:][j]
-            y = [wtg/self.tire_radius for wtg in self.wheel_torque_gear[:][j]]
+            self.x = self.vehicle_speed_gear[:][j]
+            self.y = [wtg/self.tire_radius for wtg in self.wheel_torque_gear[:][j]]
             xq = self.vehicle_speed[i]
-            f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
+            f = interpolate.interp1d(self.x, self.y, kind='linear', fill_value=0, bounds_error=False)
             fx[i][j] = f(self.vehicle_speed[i]).tolist()
         # getting maximum tractive force and gear
         self.fx_engine[i] = max(fx[i])
@@ -242,18 +242,18 @@ def fill_in(self):
     Wx = self.M*g*np.sin(incl)
     # speed map vector
     dv = 2
-    v = [i for i in range(0, math.ceil(self.v_max),dv)]
-    if v[-1] != self.v_max:
-        v.append(self.v_max)
+    self.v = [i for i in range(0, math.ceil(self.v_max),dv)]
+    if self.v[-1] != self.v_max:
+        self.v.append(self.v_max)
     # friction ellipse points
     N = 45
     # map preallocation
-    GGV = np.zeros((len(v), 3, 2*N-1)).tolist()
-    fy = np.zeros((len(v), 2*N-1)).tolist()
-    for i in range(0, len(v)):
+    self.GGV = np.zeros((len(self.v), 3, 2*N-1)).tolist()
+    fy = np.zeros((len(self.v), 2*N-1)).tolist()
+    for i in range(0, len(self.v)):
         # aero forces
-        Aero_Df = 0.5*self.rho*self.factor_Cl*self.Cl*self.A * v[i]**2
-        Aero_Dr = 0.5*self.rho*self.factor_Cd*self.Cd*self.A * v[i]**2
+        Aero_Df = 0.5*self.rho*self.factor_Cl*self.Cl*self.A * self.v[i]**2
+        Aero_Dr = 0.5*self.rho*self.factor_Cd*self.Cd*self.A * self.v[i]**2
         # rolling resistance
         Roll_Dr = self.Cr * np.abs(-1*Aero_Df+Wz)
         # normal load on driven wheels
@@ -270,7 +270,7 @@ def fill_in(self):
         x = self.vehicle_speed
         y = self.factor_power * self.fx_engine
         f = interpolate.interp1d(x, y, kind='linear', fill_value=0, bounds_error=False)
-        fy[i] = f(v[i]).tolist()
+        fy[i] = f(self.v[i]).tolist()
         ax_power_limit = 1/self.M * fy[i]
         ax_power_limit = (ax_power_limit * np.ones((N, 1))).tolist()
         # lat acc vector
@@ -281,10 +281,10 @@ def fill_in(self):
         ax_acc = [min(ax_tire_acc[i], ax_power_limit[i][0])+ax_drag for i in range(0, N)]
         ax_dec = (ax_tire_max_dec * np.sqrt(1-(ay/ay_max)**2)+ax_drag).tolist()
         # saving GGV map
-        GGV[i][0][:] = ax_acc + ax_dec[1:]
+        self.GGV[i][0][:] = ax_acc + ax_dec[1:]
         reverse = ay[::-1]
-        GGV[i][1][:] = ay + reverse[1:]
-        GGV[i][2][:] = (v[i] * np.ones((1, 2*N-1))).tolist()
+        self.GGV[i][1][:] = ay + reverse[1:]
+        self.GGV[i][2][:] = (self.v[i] * np.ones((1, 2*N-1))).tolist()
     # HUD
     print('GGV map generated successfully.')
 
@@ -360,19 +360,19 @@ def fill_in(self):
 
     # ggv map
     ax5 = f.add_subplot(gs[:, 1], projection = '3d')
-    x = []
-    y = []
-    z = []
-    for i in range(0, len(v)):
-        x.append(GGV[i][1])
-        y.append(GGV[i][0])
-        z.append(GGV[i][2][0])
-    x = np.array(x)
-    y = np.array(y)
-    z = np.array(z)
-    ax5.plot_surface(x, y, z)
-    my_col = cm.viridis(z/np.amax(z))
-    ax5.plot_surface(x, y, z, rstride=1, cstride=1, facecolors = my_col,
+    self.x = []
+    self.y = []
+    self.z = []
+    for i in range(0, len(self.v)):
+        self.x.append(self.GGV[i][1])
+        self.y.append(self.GGV[i][0])
+        self.z.append(self.GGV[i][2][0])
+    self.x = np.array(self.x)
+    self.y = np.array(self.y)
+    self.z = np.array(self.z)
+    ax5.plot_surface(self.x, self.y, self.z)
+    my_col = cm.viridis(self.z/np.amax(self.z))
+    ax5.plot_surface(self.x, self.y, self.z, rstride=1, cstride=1, facecolors = my_col,
         linewidth=0, antialiased=True)
     ax5.set_title('GGV Map')
     ax5.set_xlabel('Lat acc [m/s^2]')
